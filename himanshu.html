@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sarita General Store</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --bg-header: rgba(15, 23, 42, 0.7);
+            --bg-card: rgba(30, 41, 59, 0.7);
+            --bg-admin: #111827;
+            --text-primary: #e5e7eb;
+            --text-secondary: #9ca3af;
+            --text-accent: #22c55e;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --shadow-color: rgba(0,0,0,0.4);
+            --gradient-start: #0f172a;
+            --gradient-mid: #1e293b;
+            --gradient-end: #111827;
+        }
+
+        /* Base Styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            background: linear-gradient(-45deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end), var(--gradient-mid));
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        #admin-dashboard {
+             background: var(--bg-admin);
+        }
+        .card-bg {
+            background-color: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+        }
+        .header-bg {
+            background-color: var(--bg-header);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .shadow {
+             box-shadow: 0 4px 6px -1px var(--shadow-color), 0 2px 4px -2px var(--shadow-color);
+        }
+
+        /* Product Card Enhancements */
+        .product-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px -5px var(--shadow-color), 0 10px 10px -5px var(--shadow-color);
+        }
+        .discount-badge {
+            background-color: #ef4444; /* red-500 */
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            border: 2px solid #1f2937;
+            z-index: 5;
+        }
+        /* Custom Loader */
+        .loader {
+            border: 4px solid #4b5563;
+            border-top: 4px solid var(--text-accent);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Language Visibility Control */
+        .lang-en, .lang-hi { display: none; }
+        html[lang="en"] .lang-en { display: inline; }
+        html[lang="hi"] .lang-hi { display: inline; }
+        
+        /* Modal Transitions */
+        .modal-overlay { 
+            background-color: rgba(0, 0, 0, 0.6); 
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-content {
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+        /* Active Category/Nav Styling */
+        .nav-category.active, .mobile-nav-btn.active {
+            color: var(--text-accent);
+            font-weight: 600;
+        }
+        .nav-category.active {
+             border-bottom: 3px solid var(--text-accent);
+        }
+        /* Admin Edit Button (Visible only when logged in) */
+        .admin-edit-btn {
+            display: none;
+            position: absolute; top: 8px; right: 8px;
+            background-color: rgba(31, 41, 55, 0.7); /* gray-800 with opacity */
+            color: white;
+            padding: 5px; border-radius: 50%; cursor: pointer;
+            z-index: 10;
+        }
+        body.admin-logged-in .admin-edit-btn { display: block; }
+
+        /* Prevent scroll on body when modal is open */
+        body.modal-open { overflow: hidden; }
+        
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+        ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
+        /* Admin Mobile Responsive Styles */
+        #admin-sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        @media (max-width: 767px) {
+            #admin-sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                z-index: 60;
+            }
+            body.sidebar-open #admin-sidebar {
+                transform: translateX(0);
+            }
+            #sidebar-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background-color: rgba(0,0,0,0.5);
+                z-index: 55;
+            }
+            body.sidebar-open #sidebar-overlay {
+                display: block;
+            }
+            /* Hide top nav on mobile, show bottom nav */
+            #main-categories-nav {
+                display: none;
+            }
+            #mobile-bottom-nav {
+                display: flex;
+            }
+            /* Add padding to bottom of main content to avoid overlap with bottom nav */
+            #customer-view main {
+                padding-bottom: 80px;
+            }
+        }
+        /* Hide bottom nav on desktop */
+        @media (min-width: 768px) {
+            #mobile-bottom-nav {
+                display: none;
+            }
+        }
+    </style>
+    <!-- Dynamic Theme Styles will be injected here -->
+    <style id="theme-styles"></style>
+</head>
+<body class="bg-slate-100">
+
+    <!-- Global Loading Spinner -->
+    <div id="global-loader" class="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900/80 backdrop-blur-sm">
+        <div class="loader"></div>
+    </div>
+
+    <!-- Global Toast Notification -->
+    <div id="toast-notification" class="toast hidden fixed bottom-5 right-5 z-[200] bg-gray-800 text-white py-3 px-6 rounded-lg shadow-2xl flex items-center gap-3">
+        <i id="toast-icon" data-lucide="check-circle"></i>
+        <span id="toast-message">Notification Message</span>
+    </div>
+
+    <!-- Customer-Facing View -->
+    <div id="customer-view" class="hidden">
+        <!-- Header -->
+        <header class="header-bg shadow-sm sticky top-0 z-40">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <!-- Store Logo and Name -->
+                <div id="store-logo" class="flex items-center space-x-3 cursor-pointer">
+                     <svg class="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    <h1 id="header-store-name" class="text-xl font-bold text-gray-100"><span class="lang-en"></span><span class="lang-hi"></span></h1>
+                </div>
+                <!-- Desktop Search Bar -->
+                <div class="hidden md:flex flex-1 mx-8">
+                    <div class="relative w-full max-w-lg mx-auto">
+                        <input type="text" id="search-input" placeholder-en="Search for products..." placeholder-hi="उत्पादों में से खोजें..." class="w-full bg-slate-800/80 rounded-full py-2.5 px-5 border-2 border-transparent text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
+                        <div class="absolute right-4 top-1/2 -translate-y-1/2"><i data-lucide="search" class="text-gray-400"></i></div>
+                    </div>
+                </div>
+                <!-- Action Buttons -->
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <button id="lang-toggle" class="text-sm font-semibold text-gray-300 hover:text-green-400 p-2 rounded-lg bg-slate-800/80"><span class="lang-en">हिंदी</span><span class="lang-hi">ENG</span></button>
+                    <button id="cart-button" class="relative p-2 rounded-full hover:bg-slate-800/80">
+                        <i data-lucide="shopping-cart" class="text-gray-300"></i>
+                        <span id="cart-count" class="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center border-2 border-gray-900">0</span>
+                    </button>
+                    <button id="my-orders-btn" class="p-2 rounded-full hover:bg-slate-800/80 hidden sm:block"><i data-lucide="user-circle" class="text-gray-300"></i></button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Category Navigation (Desktop) -->
+        <nav id="main-categories-nav" class="header-bg shadow-sm sticky top-[70px] z-30">
+            <div id="main-categories" class="container mx-auto px-4 flex justify-start space-x-4 sm:space-x-8 overflow-x-auto">
+                <!-- Categories will be dynamically inserted here -->
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="container mx-auto p-4">
+            <!-- Slideshow Section -->
+            <section id="slideshow-section" class="mb-8 rounded-lg overflow-hidden shadow-lg"></section>
+            
+            <!-- Product Display Section -->
+            <section id="product-section">
+                 <div class="flex justify-between items-center mb-4">
+                     <h2 id="product-section-title" class="text-2xl font-bold text-gray-100"><span class="lang-en">All Products</span><span class="lang-hi">सभी उत्पाद</span></h2>
+                </div>
+                <div id="product-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <!-- Products will be dynamically inserted here -->
+                </div>
+                 <div id="no-products-message" class="hidden text-center py-12 text-gray-400">
+                    <i data-lucide="search-x" class="mx-auto h-12 w-12 text-gray-500"></i>
+                    <h3 class="mt-2 text-lg font-medium">No Products Found</h3>
+                    <p class="mt-1 text-sm">Try adjusting your search or category filters.</p>
+                </div>
+            </section>
+            <!-- Offers Section -->
+            <section id="offers-section" class="hidden">
+                 <div class="flex justify-between items-center mb-4">
+                     <h2 class="text-2xl font-bold text-gray-100"><span class="lang-en">Special Offers</span><span class="lang-hi">विशेष ऑफर्स</span></h2>
+                </div>
+                <div id="offers-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <!-- Offers will be dynamically inserted here -->
+                </div>
+                 <div id="no-offers-message" class="hidden text-center py-12 text-gray-400">
+                    <i data-lucide="gift" class="mx-auto h-12 w-12 text-gray-500"></i>
+                    <h3 class="mt-2 text-lg font-medium">No Special Offers Right Now</h3>
+                    <p class="mt-1 text-sm">Check back later for exciting deals!</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Floating Action Button for Snap-n-Shop -->
+        <button id="upload-fab" class="fixed bottom-20 md:bottom-6 right-6 bg-green-500 hover:bg-green-600 text-white rounded-full p-4 shadow-lg z-50 flex items-center gap-2 transform hover:scale-110 transition-transform">
+            <i data-lucide="camera"></i>
+            <span class="lang-en hidden sm:inline">Upload List</span>
+            <span class="lang-hi hidden sm:inline">लिस्ट अपलोड</span>
+        </button>
+        
+        <!-- Mobile Bottom Navigation -->
+        <nav id="mobile-bottom-nav" class="fixed bottom-0 left-0 right-0 header-bg shadow-t-lg z-50 hidden justify-around items-center py-2">
+             <button data-category="all" class="mobile-nav-btn flex flex-col items-center text-xs p-2 w-full">
+                <i data-lucide="home"></i>
+                <span><span class="lang-en">Home</span><span class="lang-hi">होम</span></span>
+            </button>
+            <button id="mobile-categories-btn" class="mobile-nav-btn flex flex-col items-center text-xs p-2 w-full">
+                <i data-lucide="layout-grid"></i>
+                <span><span class="lang-en">Categories</span><span class="lang-hi">श्रेणियाँ</span></span>
+            </button>
+            <button data-category="offers" class="mobile-nav-btn flex flex-col items-center text-xs p-2 w-full text-red-400">
+                <i data-lucide="gift"></i>
+                <span><span class="lang-en">Offers</span><span class="lang-hi">ऑफर्स</span></span>
+            </button>
+            <button id="mobile-my-orders-btn" class="mobile-nav-btn flex flex-col items-center text-xs p-2 w-full">
+                <i data-lucide="receipt"></i>
+                <span><span class="lang-en">My Orders</span><span class="lang-hi">मेरे आर्डर</span></span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Modals Container -->
+    <div id="modals-container">
+        <!-- Admin Login Modal -->
+        <div id="admin-login-modal" class="hidden modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div class="modal-content card-bg rounded-lg shadow-2xl p-8 w-full max-w-sm"><h2 class="text-2xl font-bold text-center text-gray-100 mb-6">Admin Login</h2><form id="admin-login-form"><div class="mb-4"><label for="username" class="block text-gray-300 text-sm font-bold mb-2">Username</label><input type="text" id="username" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-gray-200 leading-tight focus:outline-none focus:shadow-outline" required></div><div class="mb-6"><label for="password" class="block text-gray-300 text-sm font-bold mb-2">Password</label><input type="password" id="password" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-gray-200 mb-3 leading-tight focus:outline-none focus:shadow-outline" required></div><p id="login-error" class="text-red-400 text-xs italic mb-4 hidden">Invalid username or password.</p><div class="flex items-center justify-between"><button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">Log In</button></div></form></div>
+        </div>
+
+        <!-- Product Detail Modal -->
+        <div id="product-detail-modal" class="hidden modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div id="product-detail-content" class="modal-content card-bg rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                <!-- Content will be injected by JS -->
+            </div>
+        </div>
+
+        <!-- Mobile Checkout Modal -->
+        <div id="checkout-modal-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[100]">
+            <div id="checkout-modal" class="checkout-modal fixed bottom-0 left-0 right-0 h-[90vh] bg-gray-800 rounded-t-2xl shadow-2xl flex flex-col">
+                <header class="p-4 border-b border-gray-700 bg-gray-900/50 backdrop-blur-sm rounded-t-2xl sticky top-0">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 id="checkout-title" class="text-lg font-bold"></h2>
+                        <button onclick="app.methods.toggleCartModal(false)"><i data-lucide="x"></i></button>
+                    </div>
+                    <div id="checkout-progress" class="flex space-x-2"></div>
+                </header>
+                <main class="flex-grow overflow-y-auto p-4">
+                    <!-- Checkout Steps -->
+                    <div id="checkout-step-1" class="checkout-step"></div>
+                    <div id="checkout-step-2" class="checkout-step"></div>
+                    <div id="checkout-step-3" class="checkout-step"></div>
+                    <div id="checkout-step-4" class="checkout-step"></div>
+                </main>
+                <footer id="checkout-footer" class="p-4 bg-gray-900/50 backdrop-blur-sm border-t border-gray-700 sticky bottom-0"></footer>
+            </div>
+        </div>
+
+        <!-- Product Form Modal (for Admin) -->
+        <div id="product-form-modal" class="hidden modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div class="modal-content card-bg rounded-lg shadow-2xl w-full max-w-3xl">
+                <form id="product-form" class="w-full">
+                    <div class="flex justify-between items-center p-4 border-b border-gray-600">
+                        <h2 id="product-form-title" class="text-xl font-bold">Add New Product</h2>
+                        <button type="button" onclick="app.methods.toggleModal(false, 'product-form-modal')"><i data-lucide="x"></i></button>
+                    </div>
+                    <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                        <input type="hidden" id="product-id">
+                        <h3 class="text-lg font-semibold border-b border-gray-600 pb-2">Product Details</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium text-gray-300">Name (English)</label><input type="text" id="product-name" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm" required></div>
+                            <div><label class="block text-sm font-medium text-gray-300">Name (Hindi)</label><input type="text" id="product-name_hi" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm"></div>
+                            <div><label class="block text-sm font-medium text-gray-300">Category</label><select id="product-category" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm" required></select></div>
+                             <div>
+                                 <label class="block text-sm font-medium text-gray-300">Image</label>
+                                 <div class="mt-1 flex items-center">
+                                    <input type="text" id="product-img-url" placeholder="Enter image URL or upload" class="flex-grow block w-full rounded-none rounded-l-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm">
+                                    <label for="product-img-upload" class="cursor-pointer inline-flex items-center px-3 py-2 border border-l-0 border-gray-600 bg-gray-600 text-gray-300 rounded-r-md hover:bg-gray-500"><i data-lucide="upload" class="h-5 w-5"></i></label>
+                                    <input type="file" id="product-img-upload" class="hidden" accept="image/*">
+                                 </div>
+                                 <img id="product-img-preview" src="" class="mt-2 rounded-md max-h-32 hidden border p-1 border-gray-600">
+                            </div>
+                        </div>
+                        
+                        <!-- AI Description Feature -->
+                        <div class="space-y-2">
+                             <label class="block text-sm font-medium text-gray-300">Description (English)</label>
+                             <div class="relative">
+                                 <textarea id="product-description" rows="3" class="block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm pr-28"></textarea>
+                                 <button type="button" onclick="app.methods.generateAIDescription('en')" class="absolute top-2 right-2 text-xs bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-1 px-2 rounded-md flex items-center gap-1">✨ Generate</button>
+                             </div>
+                        </div>
+                         <div class="space-y-2">
+                             <label class="block text-sm font-medium text-gray-300">Description (Hindi)</label>
+                              <div class="relative">
+                                 <textarea id="product-description_hi" rows="3" class="block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm pr-28"></textarea>
+                                 <button type="button" onclick="app.methods.generateAIDescription('hi')" class="absolute top-2 right-2 text-xs bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-1 px-2 rounded-md flex items-center gap-1">✨ उत्पन्न करें</button>
+                              </div>
+                        </div>
+
+                        <h3 class="text-lg font-semibold border-b border-gray-600 pb-2 pt-4">Product Variants</h3>
+                        <div id="product-variants-container" class="space-y-4">
+                            <!-- Variants will be dynamically added here -->
+                        </div>
+                        <button type="button" onclick="app.methods.addVariantToForm()" class="text-sm bg-blue-500/20 text-blue-300 font-semibold py-2 px-4 rounded-lg hover:bg-blue-500/30 flex items-center gap-2"><i data-lucide="plus"></i> Add Variant</button>
+                    </div>
+                    <div class="p-4 border-t border-gray-600 bg-gray-800/50 flex justify-end">
+                        <button type="submit" class="bg-green-600 text-white py-2 px-6 rounded-lg font-bold hover:bg-green-700">Save Product</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Generic Form Modal (for simpler Admin forms) -->
+         <div id="form-modal" class="hidden modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div class="modal-content card-bg rounded-lg shadow-2xl w-full max-w-lg">
+                <form id="generic-form" class="w-full">
+                    <div class="flex justify-between items-center p-4 border-b border-gray-600">
+                        <h2 id="form-modal-title" class="text-xl font-bold"></h2>
+                        <button type="button" onclick="app.methods.toggleModal(false, 'form-modal')"><i data-lucide="x"></i></button>
+                    </div>
+                    <div id="form-modal-body" class="p-6 space-y-4 max-h-[70vh] overflow-y-auto"></div>
+                    <div class="p-4 border-t border-gray-600 bg-gray-800/50 flex justify-end">
+                        <button type="submit" class="bg-green-600 text-white py-2 px-6 rounded-lg font-bold hover:bg-green-700">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Order Detail Modal (for Admin) -->
+        <div id="order-detail-modal" class="hidden modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div class="modal-content card-bg rounded-lg shadow-2xl w-full max-w-2xl">
+                <div class="flex justify-between items-center p-4 border-b border-gray-600">
+                    <h2 id="order-detail-title" class="text-xl font-bold">Order Details</h2>
+                    <button type="button" onclick="app.methods.toggleModal(false, 'order-detail-modal')"><i data-lucide="x"></i></button>
+                </div>
+                <div id="order-detail-content" class="p-6 max-h-[80vh] overflow-y-auto"></div>
+                 <div class="p-4 border-t border-gray-600 bg-gray-800/50 flex justify-end gap-4">
+                    <button type="button" id="order-detail-save-notes-btn" class="bg-blue-600 text-white py-2 px-4 rounded-lg font-bold hover:bg-blue-700 flex items-center gap-2">
+                        <i data-lucide="save"></i> Save Notes
+                    </button>
+                    <button type="button" id="order-detail-share-btn" class="bg-green-600 text-white py-2 px-4 rounded-lg font-bold hover:bg-green-700 flex items-center gap-2">
+                        <i data-lucide="whatsapp"></i> Share on WhatsApp
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Categories Modal -->
+        <div id="mobile-categories-modal" class="hidden modal-overlay fixed inset-0 z-[100] flex flex-col">
+            <div class="modal-content card-bg rounded-t-lg shadow-2xl w-full max-w-full absolute bottom-0 h-[60vh] flex flex-col">
+                <header class="p-4 border-b border-gray-600 flex justify-between items-center">
+                    <h2 class="text-xl font-bold"><span class="lang-en">All Categories</span><span class="lang-hi">सभी श्रेणियाँ</span></h2>
+                    <button onclick="app.methods.toggleModal(false, 'mobile-categories-modal')"><i data-lucide="x"></i></button>
+                </header>
+                <main id="mobile-categories-grid" class="flex-grow p-4 overflow-y-auto grid grid-cols-3 gap-4 text-center"></main>
+            </div>
+        </div>
+        
+        <!-- Order History Lookup Modal -->
+        <div id="order-history-lookup-modal" class="hidden modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div class="modal-content card-bg rounded-lg shadow-2xl p-8 w-full max-w-sm">
+                <h2 class="text-2xl font-bold text-center text-gray-100 mb-2"><span class="lang-en">My Orders</span><span class="lang-hi">मेरे आर्डर</span></h2>
+                <p class="text-center text-sm text-gray-400 mb-6"><span class="lang-en">Enter your phone number to find your past orders.</span><span class="lang-hi">अपने पिछले आर्डर खोजने के लिए अपना फ़ोन नंबर दर्ज करें।</span></p>
+                <form id="order-history-lookup-form">
+                    <div class="mb-4">
+                        <label for="order-history-phone" class="block text-gray-300 text-sm font-bold mb-2">Phone Number</label>
+                        <input type="tel" id="order-history-phone" class="shadow appearance-none border rounded w-full py-3 px-4 bg-gray-700 text-gray-200 leading-tight focus:outline-none focus:shadow-outline" required placeholder="e.g. 919876543210">
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">Find My Orders</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Order History Display Modal -->
+        <div id="order-history-display-modal" class="hidden modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div class="modal-content card-bg rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+                 <header class="p-4 border-b border-gray-600 flex justify-between items-center">
+                    <h2 class="text-xl font-bold"><span class="lang-en">Your Order History</span><span class="lang-hi">आपकी आर्डर हिस्ट्री</span></h2>
+                    <button onclick="app.methods.toggleModal(false, 'order-history-display-modal')"><i data-lucide="x"></i></button>
+                </header>
+                <main id="order-history-list" class="flex-grow p-4 overflow-y-auto space-y-4"></main>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Admin Dashboard View -->
+    <div id="admin-dashboard" class="hidden">
+       <div class="bg-gray-900 text-white p-4 flex justify-between items-center sticky top-0 z-50 shadow-lg">
+           <div class="flex items-center gap-4">
+                <button id="menu-toggle-btn" class="md:hidden p-2 rounded-md hover:bg-gray-700">
+                    <i data-lucide="menu"></i>
+                </button>
+                <h1 class="text-xl font-bold">Admin Mission Control</h1>
+           </div>
+           <div>
+               <button id="view-store-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded mr-4">View Store</button>
+               <button id="logout-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">Logout</button>
+           </div>
+       </div>
+       
+       <div class="relative md:flex">
+            <div id="sidebar-overlay" onclick="app.methods.toggleSidebar(false)"></div>
+            <aside id="admin-sidebar" class="w-64 bg-slate-800/80 backdrop-blur-sm shadow-md min-h-screen md:sticky top-0 md:top-[68px] overflow-y-auto border-r border-white/10">
+                <nav class="p-4 space-y-2">
+                    <button data-tab="dashboard" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="layout-dashboard" class="mr-3 h-5 w-5"></i>Dashboard</button>
+                    <button data-tab="products" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="package" class="mr-3 h-5 w-5"></i>Products</button>
+                    <button data-tab="categories" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="layout-grid" class="mr-3 h-5 w-5"></i>Categories</button>
+                    <button data-tab="orders" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="shopping-cart" class="mr-3 h-5 w-5"></i>Orders</button>
+                    <button data-tab="inventory" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="archive" class="mr-3 h-5 w-5"></i>Inventory</button>
+                    <button data-tab="customers" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="users" class="mr-3 h-5 w-5"></i>Customers</button>
+                    <button data-tab="suppliers" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="truck" class="mr-3 h-5 w-5"></i>Suppliers</button>
+                    <button data-tab="promotions" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="percent" class="mr-3 h-5 w-5"></i>Promotions</button>
+                    <button data-tab="reports" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="bar-chart-2" class="mr-3 h-5 w-5"></i>Reports</button>
+                    <button data-tab="staff" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="user-cog" class="mr-3 h-5 w-5"></i>Staff</button>
+                    <button data-tab="expenses" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="wallet" class="mr-3 h-5 w-5"></i>Expenses</button>
+                    <button data-tab="slideshow" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="gallery-horizontal" class="mr-3 h-5 w-5"></i>Slideshow</button>
+                    <button data-tab="marketing" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="qr-code" class="mr-3 h-5 w-5"></i>Marketing</button>
+                    <button data-tab="settings" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="settings" class="mr-3 h-5 w-5"></i>Settings</button>
+                </nav>
+            </aside>
+
+            <!-- Admin Content -->
+            <main id="admin-main-content" class="flex-1 p-4 sm:p-8">
+                <!-- Admin tab content will be injected here -->
+            </main>
+       </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // ===================================================================================
+        // SARITA GENERAL STORE - APPLICATION LOGIC
+        // Version: 6.0.1 (Error Fix & Feature Complete)
+        // ===================================================================================
+
+        const SUPABASE_URL = 'https://sklivachbhwaubwtnkwi.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrbGl2YWNoYmh3YXVid3Rua3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxOTM2MDAsImV4cCI6MjA3Mzc2OTYwMH0.I3W3V-Tz9TrXEWW_WbCGiM0xL48xs4H2MyvBHg33-_8';
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const app = {
+            state: {
+                currentLang: 'en',
+                isAdminLoggedIn: false,
+                cart: [],
+                checkout: {},
+                currentCategory: 'all',
+                activeView: 'products',
+                activeAdminTab: 'dashboard',
+                logoClickCount: 0,
+                logoClickTimer: null,
+                searchQuery: '',
+                slideIndex: 1,
+                currentMobileTab: 'all',
+            },
+
+            db: {
+                settings: {},
+                slideshow: [],
+                products: [],
+                categories: [],
+                orders: [],
+                customers: [],
+                suppliers: [],
+                promotions: [],
+                staff: [],
+                expenses: []
+            },
+
+            methods: {
+                // --- INITIALIZATION & DATA FETCHING ---
+                async init() {
+                    console.log("App Initializing...");
+                    this.setupEventListeners();
+                    await this.loadInitialData();
+                    this.renderAll();
+                    this.resetCheckout();
+                    lucide.createIcons();
+                    
+                    document.getElementById('global-loader').classList.add('hidden');
+                    document.getElementById('customer-view').classList.remove('hidden');
+                    console.log("App Ready.");
+                },
+
+                async loadInitialData() {
+                    const [
+                        settingsRes, slideshowRes, categoriesRes, 
+                        productsRes, ordersRes, customersRes, 
+                        suppliersRes, promotionsRes, staffRes, expensesRes
+                    ] = await Promise.all([
+                        supabaseClient.from('settings').select('*').limit(1).single(),
+                        supabaseClient.from('slideshow').select('*'),
+                        supabaseClient.from('categories').select('*'),
+                        supabaseClient.from('products').select('*, variants(*)'),
+                        supabaseClient.from('orders').select('*, order_items(*)').order('created_at', { ascending: false }),
+                        supabaseClient.from('customers').select('*'),
+                        supabaseClient.from('suppliers').select('*'),
+                        supabaseClient.from('promotions').select('*'),
+                        supabaseClient.from('staff').select('*'),
+                        supabaseClient.from('expenses').select('*')
+                    ]);
+
+                    app.db.settings = settingsRes.data || { store_name: 'Kirana Store' };
+                    app.db.slideshow = slideshowRes.data || [];
+                    app.db.categories = categoriesRes.data || [];
+                    app.db.products = productsRes.data || [];
+                    app.db.orders = ordersRes.data || [];
+                    app.db.customers = customersRes.data || [];
+                    app.db.suppliers = suppliersRes.data || [];
+                    app.db.promotions = promotionsRes.data || [];
+                    app.db.staff = staffRes.data || [];
+                    app.db.expenses = expensesRes.data || [];
+
+                    document.querySelector('#header-store-name .lang-en').textContent = app.db.settings.store_name;
+                    document.querySelector('#header-store-name .lang-hi').textContent = app.db.settings.store_name_hi || app.db.settings.store_name;
+                    
+                    this.applyTheme(app.db.settings.theme || 'dark_gradient');
+                },
+
+                applyTheme(themeName) {
+                    const themes = {
+                        'dark_gradient': `
+                            :root {
+                                --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-tertiary: #334155;
+                                --bg-header: rgba(15, 23, 42, 0.7); --bg-card: rgba(30, 41, 59, 0.7);
+                                --bg-admin: #111827; --text-primary: #e5e7eb; --text-secondary: #9ca3af;
+                                --text-accent: #22c55e; --border-color: rgba(255, 255, 255, 0.1);
+                                --shadow-color: rgba(0,0,0,0.4); --gradient-start: #0f172a;
+                                --gradient-mid: #1e293b; --gradient-end: #111827;
+                            }`,
+                        'light_mode': `
+                            :root {
+                                --bg-primary: #f1f5f9; --bg-secondary: #ffffff; --bg-tertiary: #e2e8f0;
+                                --bg-header: rgba(255, 255, 255, 0.7); --bg-card: rgba(255, 255, 255, 0.7);
+                                --bg-admin: #f8fafc; --text-primary: #1e293b; --text-secondary: #64748b;
+                                --text-accent: #16a34a; --border-color: rgba(0, 0, 0, 0.1);
+                                --shadow-color: rgba(0,0,0,0.1); --gradient-start: #e0f2fe;
+                                --gradient-mid: #f1f5f9; --gradient-end: #dbeafe;
+                            }`,
+                        'ocean_blue': `
+                             :root {
+                                --bg-primary: #0c2a4c; --bg-secondary: #0b3768; --bg-tertiary: #1a5ca3;
+                                --bg-header: rgba(5, 28, 55, 0.7); --bg-card: rgba(11, 55, 104, 0.7);
+                                --bg-admin: #051c37; --text-primary: #eff6ff; --text-secondary: #93c5fd;
+                                --text-accent: #60a5fa; --border-color: rgba(191, 219, 254, 0.2);
+                                --shadow-color: rgba(0,0,0,0.4); --gradient-start: #0c2a4c;
+                                --gradient-mid: #0b3768; --gradient-end: #0c2a4c;
+                            }`
+                    };
+                    document.getElementById('theme-styles').innerHTML = themes[themeName] || themes['dark_gradient'];
+                },
+                
+                renderAll() {
+                    this.renderCategories();
+                    this.renderSlideshow();
+                    if (app.state.activeView === 'products') {
+                        this.renderProducts();
+                    } else {
+                        this.renderOffersPage();
+                    }
+                    if(app.state.isAdminLoggedIn) {
+                        this.renderAdminTab(app.state.activeAdminTab);
+                    }
+                    this.updateLanguage(app.state.currentLang);
+                },
+
+                // --- UI RENDERING ---
+                renderProducts() {
+                    const grid = document.getElementById('product-grid');
+                    const noProductsMsg = document.getElementById('no-products-message');
+                    grid.innerHTML = '';
+                    
+                    const searchQuery = app.state.searchQuery.toLowerCase();
+
+                    const productsToRender = app.db.products.filter(p => {
+                        if (!p.variants || p.variants.length === 0) return false;
+                        const hasActiveVariant = p.variants.some(v => v.status === 'Active');
+                        if (!hasActiveVariant) return false;
+                        const categoryMatch = app.state.currentCategory === 'all' || p.category_id == app.state.currentCategory;
+                        const searchMatch = !searchQuery || p.name.toLowerCase().includes(searchQuery) || (p.name_hi && p.name_hi.includes(searchQuery));
+                        return categoryMatch && searchMatch;
+                    });
+                    
+                    noProductsMsg.classList.toggle('hidden', productsToRender.length === 0);
+
+                    productsToRender.forEach(p => {
+                        const firstActiveVariant = p.variants.find(v => v.status === 'Active' && v.stock > 0) || p.variants.find(v => v.status === 'Active');
+                        if (!firstActiveVariant) return;
+
+                        const discount = firstActiveVariant.price > firstActiveVariant.sale_price ? Math.round(((firstActiveVariant.price - firstActiveVariant.sale_price) / firstActiveVariant.price) * 100) : 0;
+                        const variantsOptions = p.variants.filter(v => v.status === 'Active').map(v => `<option value="${v.id}">${v.unit}</option>`).join('');
+
+                        const card = `
+                            <div id="product-card-${p.id}" class="product-card card-bg p-3 rounded-lg shadow flex flex-col relative">
+                                ${discount > 0 ? `<div class="discount-badge">${discount}% OFF</div>` : ''}
+                                <div class="admin-edit-btn" onclick="event.stopPropagation(); app.methods.openProductForm(${p.id})"><i data-lucide="pencil" class="h-4 w-4"></i></div>
+                                <div onclick="app.methods.openProductDetailModal(${p.id})" class="flex-grow flex flex-col">
+                                    <img src="${p.img}" onerror="this.src='https://placehold.co/200x200?text=Image+Not+Found'" class="rounded-md mb-2 aspect-square object-contain bg-white/10">
+                                    <div class="flex-grow">
+                                        <h3 class="font-semibold text-gray-100 text-sm truncate"><span class="lang-en">${p.name}</span><span class="lang-hi">${p.name_hi || p.name}</span></h3>
+                                        <select class="text-xs text-gray-400 border-none focus:ring-0 p-0 bg-transparent" onclick="event.stopPropagation();" onchange="event.stopPropagation(); app.methods.updateProductCardView(${p.id}, this.value)">
+                                            ${variantsOptions}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center mt-2">
+                                    <span id="price-display-${p.id}" class="font-bold text-gray-50"></span>
+                                    <div id="action-button-${p.id}" class="w-24"></div>
+                                </div>
+                            </div>
+                        `;
+                        grid.innerHTML += card;
+                        this.updateProductCardView(p.id, firstActiveVariant.id);
+                    });
+                    this.updateLanguage(app.state.currentLang);
+                    lucide.createIcons();
+                },
+                updateProductCardView(productId, variantId) {
+                    const product = this.getProductByVariantId(variantId);
+                    if(!product) return;
+                    const variant = product.variant;
+                    const priceDisplay = document.getElementById(`price-display-${productId}`);
+                    const actionContainer = document.getElementById(`action-button-${productId}`);
+                    const cardElement = document.getElementById(`product-card-${productId}`);
+                    priceDisplay.innerHTML = `${app.db.settings.currency_symbol}${variant.sale_price} ${variant.price > variant.sale_price ? `<s class="text-gray-400 text-xs">${app.db.settings.currency_symbol}${variant.price}</s>` : ''}`;
+                    let actionButton = '';
+                    const itemInCart = app.state.cart.find(item => item.variantId == variantId);
+                    cardElement.classList.toggle('product-card-out-of-stock', variant.stock <= 0);
+                    if (variant.stock > 0) {
+                         if (itemInCart) {
+                            actionButton = `
+                                <div class="flex items-center justify-center space-x-3 bg-green-600 text-white font-bold rounded-lg shadow">
+                                    <button onclick="event.stopPropagation(); app.methods.updateCartQuantity(${variantId}, -1)" class="px-3 py-1">-</button>
+                                    <span class="text-sm">${itemInCart.quantity}</span>
+                                    <button onclick="event.stopPropagation(); app.methods.updateCartQuantity(${variantId}, 1)" class="px-3 py-1">+</button>
+                                </div>
+                            `;
+                        } else {
+                            actionButton = `<button onclick="event.stopPropagation(); app.methods.addToCart(${variantId})" class="bg-green-500/20 text-green-300 font-bold py-1.5 px-3 rounded-lg hover:bg-green-500/30 text-sm w-full transition">ADD</button>`;
+                        }
+                    } else {
+                        actionButton = `<button class="bg-gray-700 text-gray-400 font-bold py-1.5 px-3 rounded-lg text-sm w-full cursor-not-allowed" disabled>Out of Stock</button>`;
+                    }
+                    actionContainer.innerHTML = actionButton;
+                },
+                renderCategories() {
+                    const mainCatContainer = document.getElementById('main-categories');
+                    mainCatContainer.innerHTML = `<button class="nav-category active py-3 px-4 text-sm font-semibold text-gray-300 whitespace-nowrap" data-category="all"><span class="lang-en">All</span><span class="lang-hi">सभी</span></button>`;
+                    app.db.categories.forEach(category => {
+                         mainCatContainer.innerHTML += `<button class="nav-category py-3 px-4 text-sm font-semibold text-gray-300 whitespace-nowrap" data-category="${category.id}"><i data-lucide="${category.icon || 'tag'}" class="inline-block h-4 w-4 mr-2"></i><span class="lang-en">${category.name}</span><span class="lang-hi">${category.name_hi}</span></button>`;
+                    });
+                    mainCatContainer.innerHTML += `<button class="nav-category py-3 px-4 text-sm font-semibold text-red-400 whitespace-nowrap" data-category="offers"><i data-lucide="gift" class="inline-block h-4 w-4 mr-2"></i><span class="lang-en">Offers</span><span class="lang-hi">ऑफर्स</span></button>`;
+                    lucide.createIcons();
+                },
+                renderSlideshow() {
+                    const container = document.getElementById('slideshow-section');
+                    const activeSlides = app.db.slideshow.filter(s => s.status === 'Active');
+                    if (activeSlides.length === 0) { container.innerHTML = ''; return; }
+                    container.innerHTML = `<div class="slideshow-container">${activeSlides.map(slide => `<div class="slide fade"><img src="${slide.img_url}" style="width:100%" class="aspect-[3/1] object-cover"></div>`).join('')}<a class="absolute top-1/2 left-4 -translate-y-1/2 cursor-pointer text-white bg-black bg-opacity-50 p-2 rounded-full hover:bg-opacity-75" onclick="app.methods.plusSlides(-1)"><i data-lucide="chevron-left"></i></a><a class="absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer text-white bg-black bg-opacity-50 p-2 rounded-full hover:bg-opacity-75" onclick="app.methods.plusSlides(1)"><i data-lucide="chevron-right"></i></a></div>`;
+                    lucide.createIcons();
+                    this.showSlides(1);
+                },
+                renderAdminTab(tabId) {
+                    app.state.activeAdminTab = tabId;
+                    const mainContent = document.getElementById('admin-main-content');
+                    if (!mainContent) return; 
+                    document.querySelectorAll('.admin-tab-button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
+                    let content = ``;
+                    switch(tabId) {
+                        case 'dashboard':
+                            const totalSales = app.db.orders.filter(o => o.status === 'Delivered').reduce((sum, order) => sum + parseFloat(order.total), 0);
+                            const pendingOrdersCount = app.db.orders.filter(o => o.status === 'Pending').length;
+                            const pendingOrders = app.db.orders.filter(o => ['Pending', 'Processing'].includes(o.status)).slice(0, 4);
+                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Welcome, Hardik!</h2><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"><div class="card-bg p-6 rounded-lg shadow"><h3 class="text-gray-400 text-sm font-semibold">TOTAL COMPLETED SALES</h3><p class="text-3xl font-bold text-gray-50">${app.db.settings.currency_symbol}${totalSales.toLocaleString('en-IN')}</p></div><div class="card-bg p-6 rounded-lg shadow"><h3 class="text-gray-400 text-sm font-semibold">ACTIVE ORDERS</h3><p class="text-3xl font-bold text-gray-50">${pendingOrdersCount}</p></div><div class="card-bg p-6 rounded-lg shadow"><h3 class="text-gray-400 text-sm font-semibold">TOTAL PRODUCTS</h3><p class="text-3xl font-bold text-gray-50">${app.db.products.length}</p></div><div class="card-bg p-6 rounded-lg shadow"><h3 class="text-gray-400 text-sm font-semibold">TOTAL CUSTOMERS</h3><p class="text-3xl font-bold text-gray-50">${app.db.customers.length}</p></div></div><div class="mt-8"><h3 class="text-2xl font-bold text-gray-100 mb-4">Recent Active Orders</h3><div class="card-bg p-4 rounded-lg shadow">${pendingOrders.length > 0 ? pendingOrders.map(o => `<div class="border-b border-gray-600 last:border-b-0 py-3"><div class="flex justify-between items-center"><div><p class="font-bold">Order #${o.id} - ${o.customer_details.name}</p><p class="text-sm text-gray-400">${o.order_items.length} items ・ ${app.db.settings.currency_symbol}${parseFloat(o.total).toFixed(2)}</p></div><div class="flex items-center gap-4"><span class="px-2 py-1 text-xs rounded-full ${o.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-300' : 'bg-blue-500/20 text-blue-300'}">${o.status}</span><button onclick="app.methods.toggleModal(true, 'order-detail-modal', ${o.id})" class="text-blue-400 font-semibold text-sm hover:underline">View</button></div></div></div>`).join('') : '<p class="text-gray-400">No active orders right now.</p>'}</div></div>`;
+                            break;
+                        case 'products':
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Manage Products</h2><button onclick="app.methods.openProductForm()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Product</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Name</th><th class="p-2">Category</th><th class="p-2">Variants</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-product-list"></tbody></table></div>`;
+                            break;
+                        case 'categories':
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Manage Categories</h2><button onclick="app.methods.openGenericForm('categories')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Category</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Icon</th><th class="p-2">Name (English)</th><th class="p-2">Name (Hindi)</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-category-list"></tbody></table></div>`;
+                            break;
+                         case 'orders':
+                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Manage Orders</h2><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Order ID</th><th class="p-2">Customer</th><th class="p-2">Total</th><th class="p-2">Status</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-order-list"></tbody></table></div>`;
+                            break;
+                        case 'inventory':
+                            const lowStockThreshold = 10;
+                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Inventory Status</h2><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Product Name</th><th class="p-2">Variant</th><th class="p-2">Stock Level</th><th class="p-2">Status</th></tr></thead><tbody>${app.db.products.flatMap(p => p.variants.map(v => `<tr class="border-b border-gray-700"><td class="p-2">${p.name}</td><td class="p-2">${v.unit}</td><td class="p-2 font-bold ${v.stock <= lowStockThreshold ? 'text-red-400' : 'text-gray-200'}">${v.stock} units</td><td class="p-2">${v.stock === 0 ? '<span class="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-300">Out of Stock</span>' : ''}${v.stock > 0 && v.stock <= lowStockThreshold ? '<span class="px-2 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-300">Low Stock</span>' : ''}${v.stock > lowStockThreshold ? '<span class="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-300">In Stock</span>' : ''}</td></tr>`)).join('')}</tbody></table></div>`;
+                            break;
+                        case 'customers':
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Customer Management</h2><button onclick="app.methods.openGenericForm('customers')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Customer</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Name</th><th class="p-2">Phone</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-customer-list"></tbody></table></div>`;
+                            break;
+                        case 'suppliers':
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Supplier Contacts</h2><button onclick="app.methods.openGenericForm('suppliers')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Supplier</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Company</th><th class="p-2">Contact</th><th class="p-2">Phone</th><th class="p-2">Status</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-supplier-list"></tbody></table></div>`;
+                            break;
+                        case 'promotions':
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Coupons & Promotions</h2><button onclick="app.methods.openGenericForm('promotions')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Coupon</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Code</th><th class="p-2">Discount</th><th class="p-2">Status</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-promotion-list"></tbody></table></div>`;
+                            break;
+                        case 'staff':
+                             content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Manage Staff</h2><button onclick="app.methods.openGenericForm('staff')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Staff</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Name</th><th class="p-2">Role</th><th class="p-2">Status</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-staff-list"></tbody></table></div>`;
+                            break;
+                        case 'expenses':
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Expense Tracker</h2><button onclick="app.methods.openGenericForm('expenses')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Expense</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Date</th><th class="p-2">Description</th><th class="p-2">Amount</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-expense-list"></tbody></table></div>`;
+                            break;
+                         case 'slideshow':
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Homepage Slideshow</h2><button onclick="app.methods.openGenericForm('slideshow')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Slide</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Preview</th><th class="p-2">Image URL</th><th class="p-2">Status</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-slideshow-list"></tbody></table></div>`;
+                            break;
+                         case 'marketing':
+                            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(window.location.href)}`;
+                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Marketing Tools</h2><div class="card-bg p-6 rounded-lg shadow max-w-md mx-auto text-center"><h3 class="font-semibold mb-2">Share Your Store!</h3><p class="text-gray-400 mb-4">Show this QR code to customers or download it to print on flyers.</p><img id="qr-code-img" src="${qrUrl}" class="mx-auto border-4 border-gray-700 rounded-lg"><a href="${qrUrl}&download=1" download="sarita-store-qr.png" class="mt-4 inline-flex items-center justify-center bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700"><i data-lucide="download" class="mr-2 h-5 w-5"></i> Download QR Code</a></div>`;
+                            break;
+                        case 'reports':
+                            const deliveredOrders = app.db.orders.filter(o => o.status === 'Delivered');
+                            const totalRevenue = deliveredOrders.reduce((sum, order) => sum + parseFloat(order.total), 0);
+                            
+                            let totalCost = 0;
+                            deliveredOrders.forEach(order => {
+                                order.order_items.forEach(item => {
+                                    const product = this.getProductByVariantId(item.variant_id);
+                                    if (product && product.variant.cost_price) {
+                                        totalCost += product.variant.cost_price * item.quantity;
+                                    }
+                                });
+                            });
+                            const totalProfit = totalRevenue - totalCost;
+
+                            const productSales = {};
+                            deliveredOrders.forEach(order => {
+                                order.order_items.forEach(item => {
+                                    const product = this.getProductByVariantId(item.variant_id);
+                                    if(product) {
+                                         const key = `${product.name} (${product.variant.unit})`;
+                                         productSales[key] = (productSales[key] || 0) + item.quantity;
+                                    }
+                                });
+                            });
+                            const topProducts = Object.entries(productSales).sort(([,a],[,b]) => b-a).slice(0, 5);
+
+                             const customerSales = {};
+                            deliveredOrders.forEach(order => {
+                                const customerName = order.customer_details.name;
+                                customerSales[customerName] = (customerSales[customerName] || 0) + parseFloat(order.total);
+                            });
+                            const topCustomers = Object.entries(customerSales).sort(([,a],[,b]) => b-a).slice(0, 5);
+
+                            content = `
+                                <h2 class="text-3xl font-bold text-gray-100 mb-6">Business Reports</h2>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                    <div class="card-bg p-6 rounded-lg shadow"><h3 class="text-gray-400 text-sm font-semibold">TOTAL REVENUE</h3><p class="text-3xl font-bold text-green-400">${app.db.settings.currency_symbol}${totalRevenue.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p></div>
+                                    <div class="card-bg p-6 rounded-lg shadow"><h3 class="text-gray-400 text-sm font-semibold">ESTIMATED PROFIT</h3><p class="text-3xl font-bold text-blue-400">${app.db.settings.currency_symbol}${totalProfit.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p></div>
+                                    <div class="card-bg p-6 rounded-lg shadow"><h3 class="text-gray-400 text-sm font-semibold">COMPLETED ORDERS</h3><p class="text-3xl font-bold text-gray-50">${deliveredOrders.length}</p></div>
+                                </div>
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                     <div class="card-bg p-6 rounded-lg shadow">
+                                         <h3 class="text-xl font-bold mb-4">Top 5 Selling Products</h3>
+                                         <div class="space-y-3">${topProducts.map(([name, qty]) => `<div class="flex justify-between items-center text-sm"><span class="font-semibold">${name}</span><span class="text-gray-300 font-bold">${qty} units sold</span></div>`).join('') || '<p class="text-gray-400">Not enough data.</p>'}</div>
+                                     </div>
+                                      <div class="card-bg p-6 rounded-lg shadow">
+                                         <h3 class="text-xl font-bold mb-4">Top 5 Customers</h3>
+                                         <div class="space-y-3">${topCustomers.map(([name, total]) => `<div class="flex justify-between items-center text-sm"><span class="font-semibold">${name}</span><span class="text-gray-300 font-bold">${app.db.settings.currency_symbol}${total.toLocaleString('en-IN')}</span></div>`).join('') || '<p class="text-gray-400">Not enough data.</p>'}</div>
+                                     </div>
+                                </div>
+                            `;
+                            break;
+                        case 'settings':
+                            const themes = [ { id: 'dark_gradient', name: 'Dark Gradient (Default)'}, { id: 'light_mode', name: 'Clean Light'}, { id: 'ocean_blue', name: 'Ocean Blue'} ];
+                            const themeOptions = themes.map(t => `<option value="${t.id}" ${app.db.settings.theme === t.id ? 'selected' : ''}>${t.name}</option>`).join('');
+                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Store Settings</h2><div class="card-bg p-6 rounded-lg shadow max-w-2xl"><form id="settings-form" class="space-y-4"><div><label class="block text-sm font-medium text-gray-300">Store Name</label><input type="text" id="setting-storeName" value="${app.db.settings.store_name}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm"></div><div><label class="block text-sm font-medium text-gray-300">Store Name (Hindi)</label><input type="text" id="setting-storeNameHi" value="${app.db.settings.store_name_hi || ''}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm"></div><div><label class="block text-sm font-medium text-gray-300">Contact Phone (with country code)</label><input type="tel" id="setting-storePhone" value="${app.db.settings.store_phone}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm"></div><div><label class="block text-sm font-medium text-gray-300">Address</label><input type="text" id="setting-storeAddress" value="${app.db.settings.store_address}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm"></div><div><label class="block text-sm font-medium text-gray-300">Currency Symbol</label><input type="text" id="setting-currencySymbol" value="${app.db.settings.currency_symbol}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm w-24"></div><div><label class="block text-sm font-medium text-gray-300">App Theme</label><select id="setting-theme" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm">${themeOptions}</select></div><div class="pt-4"><button type="submit" class="bg-green-600 text-white py-2 px-6 rounded-lg font-bold hover:bg-green-700">Save Settings</button></div></form></div>`;
+                            break;
+                        default:
+                             content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">${tabId.charAt(0).toUpperCase() + tabId.slice(1)}</h2><div class="card-bg p-6 rounded-lg shadow">This feature is under construction or data has not been loaded.</div>`;
+                    }
+                    mainContent.innerHTML = content;
+                    const listRenderers = { products: this.renderAdminProductList, categories: this.renderAdminCategoryList, orders: this.renderAdminOrderList, customers: this.renderAdminCustomerList, suppliers: this.renderAdminSupplierList, promotions: this.renderAdminPromotionList, staff: this.renderAdminStaffList, expenses: this.renderAdminExpenseList, slideshow: this.renderAdminSlideshowList };
+                    if(listRenderers[tabId]) listRenderers[tabId].call(this);
+                    if(tabId === 'settings') document.getElementById('settings-form').addEventListener('submit', this.handleSettingsSave);
+                    lucide.createIcons();
+                },
+                renderAdminProductList() {
+                    const list = document.getElementById('admin-product-list');
+                    if(!list) return;
+                    list.innerHTML = app.db.products.map(p => {
+                        const category = app.db.categories.find(c => c.id === p.category_id);
+                        return `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2 font-semibold">${p.name}</td><td class="p-2">${category ? category.name : 'N/A'}</td><td class="p-2 text-sm">${p.variants.length} variant(s)</td><td class="p-2 space-x-2"><button onclick="app.methods.openProductForm(${p.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('products', ${p.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`
+                    }).join('');
+                },
+                renderAdminCategoryList() {
+                    const list = document.getElementById('admin-category-list');
+                    if(!list) return;
+                    list.innerHTML = app.db.categories.map(c => `
+                        <tr class="border-b border-gray-700 hover:bg-gray-800/50">
+                            <td class="p-2"><i data-lucide="${c.icon || 'tag'}" class="h-5 w-5"></i></td>
+                            <td class="p-2 font-semibold">${c.name}</td>
+                            <td class="p-2">${c.name_hi || ''}</td>
+                            <td class="p-2 space-x-2">
+                                <button onclick="app.methods.openGenericForm('categories', ${c.id})" class="text-blue-400 hover:underline text-sm">Edit</button>
+                                <button onclick="app.methods.deleteItem('categories', ${c.id})" class="text-red-400 hover:underline text-sm">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                    lucide.createIcons();
+                },
+                renderAdminOrderList() {
+                    const list = document.getElementById('admin-order-list');
+                    if (!list) return;
+                    list.innerHTML = app.db.orders.map(o => {
+                        const statuses = ['Pending', 'Processing', 'Out for Delivery', 'Delivered', 'Cancelled'];
+                        const statusOptions = statuses.map(s => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${s}</option>`).join('');
+                        return `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2 font-mono">#${o.id}</td><td class="p-2">${o.customer_details.name}</td><td class="p-2">${app.db.settings.currency_symbol}${parseFloat(o.total).toFixed(2)}</td><td class="p-2"><select onchange="app.methods.updateOrderStatus(${o.id}, this.value)" class="text-xs p-1 rounded-md border-gray-600 bg-gray-700 text-gray-200 focus:ring-indigo-500 focus:border-indigo-500">${statusOptions}</select></td><td class="p-2 space-x-2"><button onclick="app.methods.toggleModal(true, 'order-detail-modal', ${o.id})" class="text-blue-400 hover:underline text-sm">View</button></td></tr>`
+                    }).join('');
+                },
+                renderAdminCustomerList() {
+                     const list = document.getElementById('admin-customer-list');
+                    if(!list) return;
+                    list.innerHTML = app.db.customers.map(c => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2">${c.name}</td><td class="p-2">${this.createWhatsAppLink(c.phone)}</td><td class="p-2 space-x-2"><button onclick="app.methods.openGenericForm('customers', ${c.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('customers', ${c.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                    lucide.createIcons();
+                },
+                renderAdminSupplierList() {
+                    const list = document.getElementById('admin-supplier-list');
+                    if(!list) return;
+                    list.innerHTML = app.db.suppliers.map(s => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2 font-semibold">${s.name}</td><td class="p-2">${s.contact}</td><td class="p-2">${this.createWhatsAppLink(s.phone)}</td><td class="p-2"><span class="px-2 py-1 text-xs rounded-full ${s.status === 'Active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">${s.status}</span></td><td class="p-2 space-x-2"><button onclick="app.methods.openGenericForm('suppliers', ${s.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('suppliers', ${s.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                    lucide.createIcons();
+                },
+                renderAdminPromotionList() {
+                    const list = document.getElementById('admin-promotion-list');
+                    if(!list) return;
+                    list.innerHTML = app.db.promotions.map(p => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2 font-mono font-semibold">${p.code}</td><td class="p-2">${p.discount_percent ? p.discount_percent + '%' : app.db.settings.currency_symbol + p.discount_value}</td><td class="p-2"><span class="px-2 py-1 text-xs rounded-full ${p.status === 'Active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">${p.status}</span></td><td class="p-2 space-x-2"><button onclick="app.methods.openGenericForm('promotions', ${p.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('promotions', ${p.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                }, 
+                renderAdminStaffList() {
+                    const list = document.getElementById('admin-staff-list');
+                    if(!list) return;
+                    list.innerHTML = app.db.staff.map(s => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2 font-semibold">${s.name}</td><td class="p-2">${s.role}</td><td class="p-2"><span class="px-2 py-1 text-xs rounded-full ${s.status === 'Active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">${s.status}</span></td><td class="p-2 space-x-2"><button onclick="app.methods.openGenericForm('staff', ${s.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('staff', ${s.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                },
+                renderAdminExpenseList() {
+                    const list = document.getElementById('admin-expense-list');
+                    if(!list) return;
+                    list.innerHTML = app.db.expenses.map(e => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2">${e.date}</td><td class="p-2">${e.description}</td><td class="p-2">${app.db.settings.currency_symbol}${e.amount.toLocaleString('en-IN')}</td><td class="p-2 space-x-2"><button onclick="app.methods.openGenericForm('expenses', ${e.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('expenses', ${e.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                },
+                 renderAdminSlideshowList() {
+                    const list = document.getElementById('admin-slideshow-list');
+                    if(!list) return;
+                    list.innerHTML = app.db.slideshow.map(s => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2"><img src="${s.img_url}" class="h-10 w-24 object-cover rounded"></td><td class="p-2 text-xs truncate max-w-xs">${s.img_url}</td><td class="p-2"><span class="px-2 py-1 text-xs rounded-full ${s.status === 'Active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">${s.status}</span></td><td class="p-2 space-x-2"><button onclick="app.methods.openGenericForm('slideshow', ${s.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('slideshow', ${s.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                },
+                 renderOffersPage() {
+                    const grid = document.getElementById('offers-grid');
+                    const noOffersMsg = document.getElementById('no-offers-message');
+                    grid.innerHTML = '';
+                    const offerVariants = [];
+                    app.db.products.forEach(p => {
+                        p.variants.forEach(v => {
+                            if (v.price > v.sale_price && v.status === 'Active' && v.stock > 0) {
+                                offerVariants.push({ ...p, variant: v });
+                            }
+                        });
+                    });
+
+                    noOffersMsg.classList.toggle('hidden', offerVariants.length > 0);
+
+                    offerVariants.forEach(p => {
+                        const variant = p.variant;
+                        const discount = Math.round(((variant.price - variant.sale_price) / variant.price) * 100);
+                        const savings = variant.price - variant.sale_price;
+                        const card = `<div id="offer-card-${variant.id}" class="product-card card-bg p-3 rounded-lg shadow flex flex-col relative"><div class="discount-badge">${discount}% OFF</div><div class="admin-edit-btn" onclick="app.methods.openProductForm(${p.id})"><i data-lucide="pencil" class="h-4 w-4"></i></div><img src="${p.img}" onerror="this.src='https://placehold.co/200x200?text=Image+Not+Found'" class="rounded-md mb-2 aspect-square object-contain bg-gray-200"><div class="flex-grow"><h3 class="font-semibold text-gray-100 text-sm truncate"><span class="lang-en">${p.name}</span><span class="lang-hi">${p.name_hi || p.name}</span></h3><p class="text-xs text-gray-400">${variant.unit}</p></div><div class="mt-2"><div class="flex items-baseline gap-2"><span class="font-bold text-lg text-gray-50">${app.db.settings.currency_symbol}${variant.sale_price}</span><s class="text-gray-400 text-xs">${app.db.settings.currency_symbol}${variant.price}</s></div><p class="text-xs font-semibold text-green-400">You save ${app.db.settings.currency_symbol}${savings.toFixed(2)}</p></div><div id="offer-action-button-${variant.id}" class="w-full mt-3"></div></div>`;
+                        grid.innerHTML += card;
+                        this.updateOfferCardView(variant.id);
+                    });
+                    this.updateLanguage(app.state.currentLang);
+                    lucide.createIcons();
+                },
+                updateOfferCardView(variantId) {
+                    const product = this.getProductByVariantId(variantId);
+                    if(!product) return;
+                    const variant = product.variant;
+                    const actionContainer = document.getElementById(`offer-action-button-${variant.id}`);
+                    let actionButton = '';
+                    const itemInCart = app.state.cart.find(item => item.variantId == variantId);
+                    if (variant.stock > 0) {
+                         if (itemInCart) {
+                            actionButton = `<div class="flex items-center justify-center space-x-3 bg-green-600 text-white font-bold rounded-lg shadow"><button onclick="app.methods.updateCartQuantity(${variantId}, -1)" class="px-3 py-1">-</button><span class="text-sm">${itemInCart.quantity}</span><button onclick="app.methods.updateCartQuantity(${variantId}, 1)" class="px-3 py-1">+</button></div>`;
+                        } else {
+                            actionButton = `<button onclick="app.methods.addToCart(${variantId})" class="bg-green-500/20 text-green-300 font-bold py-1.5 px-3 rounded-lg hover:bg-green-500/30 text-sm w-full transition">ADD</button>`;
+                        }
+                    } else {
+                        actionButton = `<button class="bg-gray-700 text-gray-400 font-bold py-1.5 px-3 rounded-lg text-sm w-full cursor-not-allowed" disabled>Out of Stock</button>`;
+                    }
+                    actionContainer.innerHTML = actionButton;
+                },
+                
+                // --- EVENT LISTENERS & HANDLERS ---
+                setupEventListeners() {
+                    document.getElementById('lang-toggle').addEventListener('click', () => this.updateLanguage(app.state.currentLang === 'en' ? 'hi' : 'en'));
+                    document.getElementById('cart-button').addEventListener('click', () => this.toggleCartModal(true));
+                    document.getElementById('upload-fab').addEventListener('click', () => this.toggleModal(true, 'upload-list-modal'));
+                    document.getElementById('admin-login-form').addEventListener('submit', (e) => this.handleAdminLogin(e));
+                    document.getElementById('product-form').addEventListener('submit', (e) => this.handleProductFormSubmit(e));
+                    document.getElementById('logout-btn').addEventListener('click', () => window.location.reload());
+                    document.getElementById('view-store-btn').addEventListener('click', () => this.toggleAdminView(false));
+                    document.querySelector('#admin-dashboard aside nav').addEventListener('click', (e) => {
+                        const button = e.target.closest('.admin-tab-button');
+                        if (button) {
+                            this.renderAdminTab(button.dataset.tab)
+                            this.toggleSidebar(false); // Close sidebar on mobile after selection
+                        };
+                    });
+                    document.getElementById('main-categories').addEventListener('click', (e) => {
+                        const button = e.target.closest('.nav-category');
+                        if(!button) return;
+                        document.querySelector('#main-categories .active').classList.remove('active');
+                        button.classList.add('active');
+                        const category = button.dataset.category;
+                        const productSection = document.getElementById('product-section');
+                        const offersSection = document.getElementById('offers-section');
+                        if (category === 'offers') {
+                            app.state.activeView = 'offers';
+                            productSection.classList.add('hidden');
+                            offersSection.classList.remove('hidden');
+                            this.renderOffersPage();
+                        } else {
+                            app.state.activeView = 'products';
+                            offersSection.classList.add('hidden');
+                            productSection.classList.remove('hidden');
+                            app.state.currentCategory = category;
+                            this.renderProducts();
+                        }
+                    });
+
+                    document.getElementById('store-logo').addEventListener('click', () => {
+                        clearTimeout(app.state.logoClickTimer);
+                        app.state.logoClickCount++;
+                        app.state.logoClickTimer = setTimeout(() => { app.state.logoClickCount = 0; }, 1500);
+                        if (app.state.logoClickCount >= 7) {
+                            this.toggleModal(true, 'admin-login-modal');
+                            app.state.logoClickCount = 0;
+                        }
+                    });
+
+                    document.getElementById('product-img-upload').addEventListener('change', (e) => this.handleGenericImageUpload(e, 'product-img-url', 'product-img-preview', 'product-images'));
+                    
+                    document.getElementById('search-input').addEventListener('input', (e) => {
+                        app.state.searchQuery = e.target.value;
+                        if (app.state.activeView === 'products') {
+                            this.renderProducts();
+                        }
+                    });
+
+                    document.getElementById('menu-toggle-btn').addEventListener('click', () => this.toggleSidebar());
+
+                    document.getElementById('my-orders-btn').addEventListener('click', () => this.openOrderHistoryLookup());
+                    document.getElementById('mobile-my-orders-btn').addEventListener('click', () => this.openOrderHistoryLookup());
+                    document.getElementById('order-history-lookup-form').addEventListener('submit', (e) => this.handleOrderHistoryLookup(e));
+                    document.getElementById('mobile-categories-btn').addEventListener('click', () => this.openMobileCategories());
+                    
+                    document.getElementById('mobile-bottom-nav').addEventListener('click', (e) => {
+                        const button = e.target.closest('.mobile-nav-btn');
+                        if (!button || button.id === 'mobile-categories-btn' || button.id === 'mobile-my-orders-btn') return;
+                        
+                        const category = button.dataset.category;
+                        app.state.currentMobileTab = category;
+                        this.updateActiveMobileNav();
+
+                        const productSection = document.getElementById('product-section');
+                        const offersSection = document.getElementById('offers-section');
+
+                        if (category === 'offers') {
+                            app.state.activeView = 'offers';
+                            productSection.classList.add('hidden');
+                            offersSection.classList.remove('hidden');
+                            this.renderOffersPage();
+                        } else { // 'all'
+                            app.state.activeView = 'products';
+                            offersSection.classList.add('hidden');
+                            productSection.classList.remove('hidden');
+                            app.state.currentCategory = 'all';
+                            this.renderProducts();
+                        }
+                    });
+                },
+
+                updateActiveMobileNav() {
+                    document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                        btn.classList.toggle('active', btn.dataset.category === app.state.currentMobileTab);
+                    });
+                },
+
+                handleAdminLogin(e) {
+                    e.preventDefault();
+                    if (document.getElementById('username').value === 'hardik' && document.getElementById('password').value === '0000') {
+                        app.state.isAdminLoggedIn = true;
+                        this.toggleModal(false, 'admin-login-modal');
+                        app.methods.toggleAdminView(true);
+                    } else {
+                        document.getElementById('login-error').classList.remove('hidden');
+                        setTimeout(() => document.getElementById('login-error').classList.add('hidden'), 3000);
+                    }
+                },
+                async handleProductFormSubmit(e) {
+                    e.preventDefault();
+                    const productId = document.getElementById('product-id').value;
+                    const productData = {
+                        name: document.getElementById('product-name').value,
+                        name_hi: document.getElementById('product-name_hi').value || null,
+                        category_id: document.getElementById('product-category').value,
+                        img: document.getElementById('product-img-url').value,
+                        description: document.getElementById('product-description').value || null,
+                        description_hi: document.getElementById('product-description_hi').value || null
+                    };
+                    
+                    let savedProduct, productError;
+
+                    if (productId) {
+                        const { data, error } = await supabaseClient.from('products').update(productData).eq('id', productId).select().single();
+                        savedProduct = data;
+                        productError = error;
+                    } else {
+                        const { data, error } = await supabaseClient.from('products').insert(productData).select().single();
+                        savedProduct = data;
+                        productError = error;
+                    }
+
+                    if (productError) { console.error('Error saving product:', productError); this.showToast('Error saving product.', 'error'); return; }
+                    if (!savedProduct) { this.showToast('Could not save product.', 'error'); return; }
+                    
+                    const variantContainers = document.querySelectorAll('#product-variants-container .variant-form-group');
+                    const newVariants = [];
+                    const existingVariants = [];
+
+                    variantContainers.forEach(container => {
+                        const variantId = container.dataset.variantId;
+                        const variantData = {
+                            product_id: savedProduct.id,
+                            unit: container.querySelector('[name="variant-unit"]').value,
+                            price: parseFloat(container.querySelector('[name="variant-price"]').value),
+                            sale_price: parseFloat(container.querySelector('[name="variant-salePrice"]').value),
+                            cost_price: parseFloat(container.querySelector('[name="variant-costPrice"]').value) || null,
+                            stock: parseInt(container.querySelector('[name="variant-stock"]').value),
+                            status: container.querySelector('[name="variant-status"]').checked ? 'Active' : 'Inactive'
+                        };
+
+                        if (String(variantId).startsWith('new-')) {
+                            newVariants.push(variantData);
+                        } else {
+                            existingVariants.push({ id: variantId, ...variantData });
+                        }
+                    });
+
+                    let variantsError;
+                    if (newVariants.length > 0) {
+                        const { error } = await supabaseClient.from('variants').insert(newVariants);
+                        if (error) variantsError = error;
+                    }
+
+                    if (existingVariants.length > 0 && !variantsError) {
+                        const { error } = await supabaseClient.from('variants').upsert(existingVariants);
+                        if (error) variantsError = error;
+                    }
+
+                    if (variantsError) { console.error('Error saving variants:', variantsError); this.showToast('Error saving variants.', 'error'); return; }
+                    
+                    this.showToast(`Product ${productId ? 'updated' : 'added'} successfully!`);
+                    this.toggleModal(false, 'product-form-modal');
+                    await this.loadInitialData();
+                    this.renderAll();
+                },
+                async handleSettingsSave(e) {
+                    e.preventDefault();
+                    const settingsData = {
+                        id: 1,
+                        store_name: document.getElementById('setting-storeName').value,
+                        store_name_hi: document.getElementById('setting-storeNameHi').value,
+                        store_phone: document.getElementById('setting-storePhone').value,
+                        store_address: document.getElementById('setting-storeAddress').value,
+                        currency_symbol: document.getElementById('setting-currencySymbol').value,
+                        theme: document.getElementById('setting-theme').value
+                    };
+                    const { error } = await supabaseClient.from('settings').upsert(settingsData);
+                    if (error) { this.showToast('Error saving settings.', 'error'); } 
+                    else {
+                        this.showToast('Settings saved successfully!');
+                        app.db.settings = { ...app.db.settings, ...settingsData };
+                        this.applyTheme(settingsData.theme);
+                        this.renderAll();
+                    }
+                },
+                async handleGenericImageUpload(e, inputId, previewId, bucket) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const input = document.getElementById(inputId);
+                    const preview = document.getElementById(previewId);
+                    const fileName = `${Date.now()}_${file.name}`;
+                    this.showToast('Uploading image...', 'info');
+                    const { error } = await supabaseClient.storage.from(bucket).upload(fileName, file);
+                    if (error) { console.error('Image upload error:', error); this.showToast('Error uploading image.', 'error'); return; }
+                    const { data } = supabaseClient.storage.from(bucket).getPublicUrl(fileName);
+                    if (data.publicUrl) { input.value = data.publicUrl; preview.src = data.publicUrl; preview.classList.remove('hidden'); this.showToast('Image uploaded successfully.'); }
+                },
+                 async openGenericForm(itemType, id = null) {
+                    const form = document.getElementById('generic-form');
+                    form.reset();
+                    const title = document.getElementById('form-modal-title');
+                    const body = document.getElementById('form-modal-body');
+                    const item = id ? app.db[itemType].find(i => i.id === id) : null;
+                    title.textContent = `${id ? 'Edit' : 'Add'} ${itemType.charAt(0).toUpperCase() + itemType.slice(0, -1)}`;
+                    let fieldsHtml = `<input type="hidden" name="id" value="${id || ''}">`;
+                    const formFields = {
+                        categories: [{name: 'name', label: 'Name (English)'}, {name: 'name_hi', label: 'Name (Hindi)'}, {name: 'icon', label: 'Icon Name (from lucide.dev)'}],
+                        customers: [{name: 'name', label: 'Name'}, {name: 'phone', label: 'Phone', type: 'tel'}],
+                        suppliers: [{name: 'name', label: 'Company Name'}, {name: 'contact', label: 'Contact Person'}, {name: 'phone', label: 'Phone', type: 'tel'}, {name: 'supplies', label: 'Supplies'}, {name: 'status', label: 'Active', type: 'switch'}],
+                        promotions: [{name: 'code', label: 'Coupon Code'}, {name: 'discount_percent', label: 'Discount (%)', type: 'number'}, {name: 'discount_value', label: `Discount (${app.db.settings.currency_symbol})`, type: 'number'}, {name: 'status', label: 'Active', type: 'switch'}],
+                        staff: [{name: 'name', label: 'Staff Name'}, {name: 'role', label: 'Role'}, {name: 'status', label: 'Active', type: 'switch'}],
+                        expenses: [{name: 'date', label: 'Date', type: 'date'}, {name: 'description', label: 'Description'}, {name: 'amount', label: 'Amount', type: 'number'}],
+                        slideshow: [{name: 'img_url', label: 'Image', type: 'imageUpload', inputId: 'slideshow-img-url', previewId: 'slideshow-img-preview', bucket: 'slideshow-images'}, {name: 'status', label: 'Active', type: 'switch'}]
+                    };
+                    fieldsHtml += formFields[itemType].map(field => {
+                        const value = item ? item[field.name] : '';
+                        if (field.type === 'switch') { return `<div class="flex items-center space-x-2"><label class="switch"><input type="checkbox" name="status" ${value === 'Active' || (!id && field.name === 'status') ? 'checked' : ''}><span class="slider"></span></label><span class="text-sm font-medium">${field.label}</span></div>`; }
+                        if (field.type === 'imageUpload') { return `<div><label class="block text-sm font-medium text-gray-300">${field.label}</label><div class="mt-1 flex items-center"><input type="text" name="${field.name}" id="${field.inputId}" value="${value || ''}" placeholder="Enter image URL or upload" class="flex-grow block w-full rounded-none rounded-l-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm"><label for="${field.inputId}-upload" class="cursor-pointer inline-flex items-center px-3 py-2 border border-l-0 border-gray-600 bg-gray-600 text-gray-300 rounded-r-md hover:bg-gray-500"><i data-lucide="upload" class="h-5 w-5"></i></label><input type="file" id="${field.inputId}-upload" class="hidden" accept="image/*" onchange="app.methods.handleGenericImageUpload(event, '${field.inputId}', '${field.previewId}', '${field.bucket}')"></div><img id="${field.previewId}" src="${value || ''}" class="mt-2 rounded-md max-h-32 ${value ? '' : 'hidden'} border p-1 border-gray-600"></div>`; }
+                        return `<div><label class="block text-sm font-medium text-gray-300">${field.label}</label><input type="${field.type || 'text'}" name="${field.name}" value="${value || ''}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm" required></div>`;
+                    }).join('');
+                    body.innerHTML = fieldsHtml;
+                    lucide.createIcons();
+                    form.onsubmit = (e) => this.handleGenericFormSubmit(e, itemType);
+                    this.toggleModal(true, 'form-modal');
+                },
+                async handleGenericFormSubmit(e, itemType) {
+                    e.preventDefault();
+                    const form = e.target;
+                    const id = form.querySelector('input[name="id"]').value;
+                    const formData = new FormData(form);
+                    const data = Object.fromEntries(formData.entries());
+                    const { id: removedId, ...payload } = data;
+
+                    if (payload.status !== undefined) {
+                        payload.status = payload.status === 'on' ? 'Active' : 'Inactive';
+                    }
+                    
+                    ['discount_percent', 'discount_value', 'amount'].forEach(key => { if(payload[key] === '' || payload[key] === undefined) payload[key] = null; });
+                    
+                    let error;
+                    if (id) {
+                        const { error: updateError } = await supabaseClient.from(itemType).update(payload).eq('id', id);
+                        error = updateError;
+                    } else {
+                        const { error: insertError } = await supabaseClient.from(itemType).insert([payload]);
+                        error = insertError;
+                    }
+
+                    if (error) { console.error(`Error saving ${itemType}:`, error); this.showToast(`Error saving ${itemType}.`, 'error'); } 
+                    else { this.showToast(`${itemType.charAt(0).toUpperCase() + itemType.slice(0, -1)} saved!`); this.toggleModal(false, 'form-modal'); await this.loadInitialData(); this.renderAll(); }
+                },
+                
+                // --- CORE LOGIC ---
+                addToCart(variantId) {
+                    const product = this.getProductByVariantId(variantId);
+                    if (!product || product.variant.stock <= 0) { this.showToast('This item is out of stock.', 'error'); return; }
+                    const existingItem = app.state.cart.find(item => item.variantId === variantId);
+                    if (existingItem) { existingItem.quantity++; } else { app.state.cart.push({ variantId: variantId, quantity: 1 }); }
+                    this.showToast(`${product.name} added to cart!`);
+                    this.updateCartCount();
+                    
+                    if(document.getElementById('product-detail-modal').classList.contains('hidden') === false) {
+                        this.renderProductDetailVariants(product);
+                    } else if (app.state.activeView === 'offers') { 
+                        this.updateOfferCardView(variantId); 
+                    } else { 
+                        this.updateProductCardView(product.id, variantId); 
+                    }
+                },
+                 updateCartQuantity(variantId, change, fromCheckout = false) {
+                    const itemIndex = app.state.cart.findIndex(item => item.variantId == variantId);
+                    let product = null;
+                    if(itemIndex > -1) {
+                        product = this.getProductByVariantId(app.state.cart[itemIndex].variantId);
+                        app.state.cart[itemIndex].quantity += change;
+                        if (app.state.cart[itemIndex].quantity <= 0) { app.state.cart.splice(itemIndex, 1); }
+                    }
+                    this.updateCartCount();
+                    if (fromCheckout) { this.renderCheckoutStepContent(1); this.renderCheckoutStepContent(4); } 
+                    else if(document.getElementById('product-detail-modal').classList.contains('hidden') === false && product) {
+                        this.renderProductDetailVariants(product);
+                    } else if (app.state.activeView === 'offers') { this.renderOffersPage(); } 
+                    else { this.renderProducts(); }
+                },
+                async handlePlaceOrder() {
+                    if (app.state.cart.length === 0) { this.showToast('Your cart is empty.', 'error'); return; };
+                    if (!app.state.checkout.customerDetails.name || !app.state.checkout.customerDetails.phone) { this.showToast('Please complete your details.', 'error'); return; }
+                    this.showToast('Placing your order...', 'info');
+                    const { data: customer, error: customerError } = await supabaseClient.from('customers').upsert({ phone: app.state.checkout.customerDetails.phone, name: app.state.checkout.customerDetails.name }, { onConflict: 'phone' }).select().single();
+                    if (customerError) { console.error(customerError); this.showToast('Error saving customer info.', 'error'); return; }
+                    const { finalTotal } = this.calculateCartTotal();
+                    const orderItemsForDetails = app.state.cart.map(item => { const product = this.getProductByVariantId(item.variantId); return { variant_id: item.variantId, quantity: item.quantity, price_at_purchase: product.variant.sale_price, item_details: { name: product.name, unit: product.variant.unit } }; });
+                    const orderPayload = { customer_id: customer.id, customer_details: { name: customer.name, phone: customer.phone }, address: app.state.checkout.address, total: finalTotal, status: 'Pending' };
+                    const { data: order, error: orderError } = await supabaseClient.from('orders').insert(orderPayload).select().single();
+                    if (orderError) { console.error(orderError); this.showToast('Could not create order.', 'error'); return; }
+                    const orderItemsPayload = orderItemsForDetails.map(item => ({...item, order_id: order.id}));
+                    const { error: itemsError } = await supabaseClient.from('order_items').insert(orderItemsPayload);
+                    if (itemsError) { console.error(itemsError); this.showToast('Error saving order items.', 'error'); return; }
+                    this.sendOrderToWhatsApp({ ...order, customer_details: { ...customer }, items: orderItemsPayload });
+                    this.toggleCartModal(false);
+                    this.showToast('Order placed successfully! Thank you.');
+                    app.state.cart = [];
+                    this.updateCartCount();
+                    await this.loadInitialData();
+                    this.renderAll();
+                    this.resetCheckout();
+                },
+                openProductForm(productId = null) {
+                    const form = document.getElementById('product-form');
+                    form.reset();
+                    document.getElementById('product-img-preview').classList.add('hidden');
+                    const title = document.getElementById('product-form-title');
+                    const categorySelect = document.getElementById('product-category');
+                    const variantsContainer = document.getElementById('product-variants-container');
+                    variantsContainer.innerHTML = '';
+                    categorySelect.innerHTML = app.db.categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+                    if (productId) {
+                        const product = app.db.products.find(p => p.id === productId);
+                        title.textContent = 'Edit Product';
+                        document.getElementById('product-id').value = product.id;
+                        document.getElementById('product-name').value = product.name;
+                        document.getElementById('product-name_hi').value = product.name_hi;
+                        document.getElementById('product-category').value = product.category_id;
+                        document.getElementById('product-img-url').value = product.img;
+                        document.getElementById('product-description').value = product.description || '';
+                        document.getElementById('product-description_hi').value = product.description_hi || '';
+
+                        if (product.img) {
+                           const preview = document.getElementById('product-img-preview');
+                           preview.src = product.img;
+                           preview.classList.remove('hidden');
+                        }
+                        product.variants.forEach(v => this.addVariantToForm(v));
+                    } else {
+                        title.textContent = 'Add New Product';
+                        document.getElementById('product-id').value = '';
+                        this.addVariantToForm();
+                    }
+                    this.toggleModal(true, 'product-form-modal');
+                },
+                addVariantToForm(variant = null) {
+                    const container = document.getElementById('product-variants-container');
+                    const variantId = variant ? variant.id : `new-${Date.now()}`;
+                    const variantHtml = `<div class="variant-form-group border border-gray-600 p-4 rounded-lg space-y-2 relative bg-slate-800/50" data-variant-id="${variantId}"><button type="button" onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-300"><i data-lucide="trash-2" class="h-4 w-4"></i></button><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"><div><label class="block text-sm font-medium text-gray-300">Unit (e.g., 100g)</label><input type="text" name="variant-unit" value="${variant?.unit || ''}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm" required></div><div><label class="block text-sm font-medium text-gray-300">Stock</label><input type="number" name="variant-stock" value="${variant?.stock || 0}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm" required></div><div><label class="block text-sm font-medium text-gray-300">MRP (${app.db.settings.currency_symbol})</label><input type="number" step="0.01" name="variant-price" value="${variant?.price || ''}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm" required></div><div><label class="block text-sm font-medium text-gray-300">Sale Price (${app.db.settings.currency_symbol})</label><input type="number" step="0.01" name="variant-salePrice" value="${variant?.sale_price || ''}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm" required></div><div><label class="block text-sm font-medium text-gray-300">Cost Price (${app.db.settings.currency_symbol})</label><input type="number" step="0.01" name="variant-costPrice" value="${variant?.cost_price || ''}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm"></div><div class="flex items-center space-x-2 pt-6"><label class="switch"><input type="checkbox" name="variant-status" ${variant?.status === 'Active' || !variant ? 'checked' : ''}><span class="slider"></span></label><span class="text-sm font-medium">Active</span></div></div></div>`;
+                    container.insertAdjacentHTML('beforeend', variantHtml);
+                    lucide.createIcons();
+                },
+                async deleteItem(itemType, id) {
+                    if (confirm(`Are you sure you want to delete this item? This action cannot be undone.`)) {
+                        const { error } = await supabaseClient.from(itemType).delete().eq('id', id);
+                        if (error) { console.error(`Error deleting ${itemType}:`, error); this.showToast(`Could not delete item.`, 'error'); } 
+                        else { this.showToast('Item deleted successfully.', 'info'); await this.loadInitialData(); this.renderAll(); }
+                    }
+                },
+                async updateOrderStatus(orderId, newStatus) {
+                    const { error } = await supabaseClient.from('orders').update({ status: newStatus }).eq('id', orderId);
+                    if (error) { this.showToast('Error updating status.', 'error'); } 
+                    else { this.showToast(`Order #${orderId} status updated.`); const order = app.db.orders.find(o => o.id === orderId); if(order) order.status = newStatus; }
+                },
+                async handleSaveOrderNotes(orderId) {
+                    const notes = document.getElementById('order-notes-textarea').value;
+                    const { error } = await supabaseClient.from('orders').update({ notes: notes }).eq('id', orderId);
+                    if (error) {
+                        this.showToast('Error saving notes.', 'error');
+                    } else {
+                        this.showToast('Order notes saved!');
+                        const order = app.db.orders.find(o => o.id === orderId);
+                        if (order) order.notes = notes;
+                    }
+                },
+                 applyCoupon() {
+                    const code = document.getElementById('coupon-code').value.toUpperCase();
+                    const promotion = app.db.promotions.find(p => p.code === code && p.status === 'Active');
+                    if (promotion) {
+                        app.state.checkout.coupon = promotion;
+                        this.showToast(`Coupon "${code}" applied successfully!`);
+                    } else {
+                        app.state.checkout.coupon = null;
+                        this.showToast('Invalid or expired coupon code.', 'error');
+                    }
+                    this.renderCheckoutStepContent(4); // Re-render final review
+                },
+                getLocation() {
+                    this.showToast('Fetching your location...', 'info');
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                // Simulate API call to reverse geocode
+                                setTimeout(() => {
+                                    document.getElementById('checkout-customer-flat').value = 'A-45, Sunshine Apartments';
+                                    document.getElementById('checkout-customer-locality').value = 'C-Scheme, Jaipur';
+                                    this.showToast('Location fetched successfully!');
+                                }, 1500);
+                            },
+                            () => { this.showToast('Unable to retrieve location. Please enter manually.', 'error'); }
+                        );
+                    } else {
+                        this.showToast('Geolocation is not supported by your browser.', 'error');
+                    }
+                },
+                
+                // --- UTILITY & HELPER FUNCTIONS ---
+                getProductByVariantId(variantId) { for (const product of app.db.products) { const variant = product.variants.find(v => v.id == variantId); if (variant) return { ...product, variant }; } return null; },
+                updateCartCount(){const t=app.state.cart.reduce((t,e)=>t+e.quantity,0);document.getElementById("cart-count").textContent=t},
+                calculateCartTotal(){const t=app.state.cart.reduce((t,e)=>{const a=this.getProductByVariantId(e.variantId);return t+(a.variant.sale_price||0)*e.quantity},0);let e=0;app.state.checkout.coupon&&(app.state.checkout.coupon.discount_percent?e=t*app.state.checkout.coupon.discount_percent/100:app.state.checkout.coupon.discount_value&&(e=app.state.checkout.coupon.discount_value));const a=t-e;return{subtotal:t,discountAmount:e,finalTotal:a}},
+                createWhatsAppLink(t){return`<a href="https://wa.me/${t}" target="_blank" class="text-green-400 hover:underline flex items-center gap-1"><i data-lucide="whatsapp" class="h-4 w-4"></i> ${t}</a>`},
+                shareOrder(t){const e=app.db.orders.find(e=>e.id===t);e&&this.sendOrderToWhatsApp(e,!0)},
+                sendOrderToWhatsApp(t,e=!1){const a=this.generateOrderMessage(t,"admin");window.open(`https://wa.me/${app.db.settings.store_phone}?text=${encodeURIComponent(a)}`,"_blank"),e||setTimeout(()=>{const e=this.generateOrderMessage(t,"customer");window.open(`https://wa.me/${t.customer_details.phone}?text=${encodeURIComponent(e)}`,"_blank")},1500)},
+                generateOrderMessage(t,e){const{currency_symbol:a,store_name:s}=app.db.settings;let n="";return"customer"===e?(n+=`Hi ${t.customer_details.name},\n\nThank you for your order from *${s}*!\n\n`,n+=`*Order ID:* ${t.id}\n`,n+=`*Status:* ${t.status}\n\n`):(n+="*📢 New Order Received! 📢*\n\n",n+=`*Order ID:* ${t.id}\n`,n+=`*Customer:* ${t.customer_details.name}\n`,n+=`*Phone:* ${t.customer_details.phone}\n`,n+=`*Address:* ${t.address.flat}, ${t.address.locality}\n\n`),n+="*🧾 Order Summary:*\n",t.items.forEach(t=>{n+=`  - ${t.item_details.name} (Qty: ${t.quantity}) - ${a}${(t.price_at_purchase*t.quantity).toFixed(2)}\n`}),n+=`\n*💰 Total Amount: ${a}${parseFloat(t.total).toFixed(2)}*\n\n`,"customer"===e?n+="We are processing your order and will notify you upon dispatch. Thanks for shopping with us!":n+="Please process this order at the earliest.",n},
+                updateLanguage(t){app.state.currentLang=t,document.documentElement.lang=t,document.querySelectorAll("[placeholder-en], [placeholder-hi]").forEach(e=>{e.setAttribute("placeholder","hi"===t?e.getAttribute("placeholder-hi"):e.getAttribute("placeholder-en"))})},
+                toggleAdminView(t){document.getElementById("customer-view").classList.toggle("hidden",t),document.getElementById("admin-dashboard").classList.toggle("hidden",!t),document.body.classList.toggle("admin-logged-in",t),t&&this.renderAdminTab("dashboard")},
+                toggleSidebar(t){document.body.classList.toggle("sidebar-open",t)},
+                toggleCartModal(t){t&&this.renderCheckoutStep(),this.toggleModal(t,"checkout-modal-overlay");const e=document.getElementById("checkout-modal");e.classList.toggle("active",t)},
+                toggleModal(t,e,a=null){const s=document.getElementById(e);t?(a&&"order-detail-modal"===e&&this.renderOrderDetailContent(a),s.classList.remove("hidden"),document.body.classList.add("modal-open")): (s.classList.add("hidden"),0===document.querySelectorAll(".modal-overlay:not(.hidden), .checkout-modal.active").length&&document.body.classList.remove("modal-open"))},
+                renderOrderDetailContent(t){const e=app.db.orders.find(e=>e.id===t);e&&(document.getElementById("order-detail-title").innerText=`Order #${e.id}`,document.getElementById("order-detail-share-btn").onclick=()=>this.shareOrder(e.id),document.getElementById('order-detail-save-notes-btn').onclick=()=>this.handleSaveOrderNotes(e.id),document.getElementById("order-detail-content").innerHTML=`<div class="space-y-4"><div><strong>Status:</strong> <span class="px-2 py-1 text-xs rounded-full ${"Delivered"===e.status?"bg-green-500/20 text-green-300":"bg-yellow-500/20 text-yellow-300"}">${e.status}</span></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><strong>Customer:</strong> ${e.customer_details.name}</div><div><strong>Phone:</strong> ${this.createWhatsAppLink(e.customer_details.phone)}</div></div><div><strong>Address:</strong> ${e.address.flat}, ${e.address.locality}</div><div class="border-t border-gray-600 pt-2"><h4 class="font-semibold mb-2">Items</h4>${e.order_items.map(t=>`<div class="flex justify-between text-sm py-1"><span>${t.item_details.name} x ${t.quantity}</span><span>${app.db.settings.currency_symbol}${(t.price_at_purchase*t.quantity).toFixed(2)}</span></div>`).join("")}<div class="flex justify-between font-bold mt-2 border-t border-gray-600 pt-2"><span>Total</span><span>${app.db.settings.currency_symbol}${parseFloat(e.total).toFixed(2)}</span></div></div><div><label class="block text-sm font-medium text-gray-300">Admin Notes</label><textarea id="order-notes-textarea" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm" rows="3" placeholder="Add internal notes...">${e.notes || ''}</textarea></div></div>`,lucide.createIcons())},
+                renderCheckoutStep() {
+                    const step = app.state.checkout.step;
+                    const titles = ["Order Summary", "Your Details", "Delivery Address", "Review & Pay"];
+                    document.getElementById('checkout-title').innerText = titles[step - 1];
+                    document.getElementById('checkout-progress').innerHTML = Array.from({length: 4}, (_, i) => `<div class="progress-step h-1.5 flex-1 rounded-full ${i < step ? 'active' : ''}"></div>`).join('');
+                    document.querySelectorAll('.checkout-step').forEach(el => el.classList.remove('active'));
+                    document.getElementById(`checkout-step-${step}`).classList.add('active');
+                    this.renderCheckoutStepContent(step);
+                    this.renderCheckoutFooter(step);
+                    lucide.createIcons();
+                },
+                renderCheckoutStepContent(step) {
+                    const stepContainer = document.getElementById(`checkout-step-${step}`);
+                    let content = '';
+                    switch (step) {
+                        case 1: // Order Summary
+                            if (app.state.cart.length === 0) {
+                                content = `<div class="text-center py-8"><i data-lucide="shopping-cart" class="mx-auto h-12 w-12 text-gray-400"></i><h3 class="mt-2 text-lg font-medium text-gray-300">Your cart is empty.</h3></div>`;
+                            } else {
+                                content = app.state.cart.map(item => {
+                                    const product = this.getProductByVariantId(item.variantId);
+                                    if (!product) return '';
+                                    return `<div class="flex items-center justify-between py-2 border-b border-gray-700"><div class="flex items-center gap-3"><img src="${product.img}" class="w-12 h-12 rounded object-contain border border-gray-700 p-1"><div<p class="font-semibold text-sm">${product.name} <span class="text-gray-400">(${product.variant.unit})</span></p><p class="text-xs text-gray-400">${app.db.settings.currency_symbol}${product.variant.sale_price}</p></div></div><div class="flex items-center space-x-3"><button onclick="app.methods.updateCartQuantity(${item.variantId}, -1, true)" class="font-bold">-</button><span>${item.quantity}</span><button onclick="app.methods.updateCartQuantity(${item.variantId}, 1, true)" class="font-bold">+</button></div></div>`;
+                                }).join('');
+                            }
+                            break;
+                        case 2: // Customer Details
+                            content = `<div class="space-y-4"><div><label class="block text-sm font-medium text-gray-300">Full Name</label><input type="text" id="checkout-customer-name" value="${app.state.checkout.customerDetails.name}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><div><label class="block text-sm font-medium text-gray-300">Phone Number (for WhatsApp)</label><input type="tel" id="checkout-customer-phone" value="${app.state.checkout.customerDetails.phone}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3" placeholder="e.g., 919876543210"></div></div>`;
+                            break;
+                        case 3: // Address
+                             content = `<div class="space-y-4"><div><label class="block text-sm font-medium text-gray-300">Flat, House no., Building</label><input type="text" id="checkout-customer-flat" value="${app.state.checkout.address.flat}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><div><label class="block text-sm font-medium text-gray-300">Area, Colony, Street, Landmark</label><input type="text" id="checkout-customer-locality" value="${app.state.checkout.address.locality}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><button onclick="app.methods.getLocation()" class="mt-2 text-sm text-blue-400 hover:underline flex items-center gap-1"><i data-lucide="map-pin" class="h-4 w-4"></i> Fetch Current Location</button></div>`;
+                            break;
+                        case 4: // Final Review
+                            const { subtotal, finalTotal, discountAmount } = this.calculateCartTotal();
+                            let discountText = '';
+                            if (app.state.checkout.coupon) {
+                                discountText = `<div class="flex justify-between text-green-400"><span>Discount (${app.state.checkout.coupon.code})</span><span>- ${app.db.settings.currency_symbol}${discountAmount.toFixed(2)}</span></div>`;
+                            }
+                             content = `<div class="space-y-4"><div><h3 class="font-semibold mb-2 text-gray-100">Review Your Details</h3><div class="bg-gray-700/50 p-3 rounded-lg border border-gray-600"><p><strong>Name:</strong> ${app.state.checkout.customerDetails.name}</p><p><strong>Phone:</strong> ${app.state.checkout.customerDetails.phone}</p><p><strong>Address:</strong> ${app.state.checkout.address.flat}, ${app.state.checkout.address.locality}</p></div></div><div><h3 class="font-semibold mb-2 text-gray-100">Coupon</h3><div class="flex gap-2"><input type="text" id="coupon-code" placeholder="Enter coupon code" class="flex-grow w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm text-sm p-2"><button onclick="app.methods.applyCoupon()" class="bg-gray-600 text-white py-2 px-4 rounded-lg font-bold text-sm">Apply</button></div></div><div class="border-t border-gray-700 pt-2 space-y-2"><div class="flex justify-between text-sm"><span>Subtotal</span><span>${app.db.settings.currency_symbol}${subtotal.toFixed(2)}</span></div>${discountText}<div class="flex justify-between font-bold text-lg"><span>Total</span><span>${app.db.settings.currency_symbol}${finalTotal.toFixed(2)}</span></div></div></div>`;
+                            break;
+                    }
+                    stepContainer.innerHTML = content;
+                },
+                renderCheckoutFooter(step) {
+                    const footer = document.getElementById('checkout-footer');
+                    let backButton = step > 1 ? `<button onclick="app.methods.changeCheckoutStep(-1)" class="bg-gray-600 text-gray-200 py-3 px-6 rounded-lg font-bold">Back</button>` : '';
+                    let nextButton = '';
+                    if (step < 4) {
+                        nextButton = `<button onclick="app.methods.changeCheckoutStep(1)" class="bg-green-600 text-white py-3 px-6 rounded-lg font-bold flex-grow">Next</button>`;
+                    } else {
+                        nextButton = `<button onclick="app.methods.handlePlaceOrder()" class="bg-green-600 text-white py-3 px-6 rounded-lg font-bold flex-grow flex items-center justify-center gap-2"><i data-lucide="send"></i>Place Order & Send on WhatsApp</button>`;
+                    }
+                    footer.innerHTML = `<div class="flex gap-2">${backButton}${nextButton}</div>`;
+                    lucide.createIcons();
+                },
+                changeCheckoutStep(t){const e=app.state.checkout.step;t>0&&(2===e&&(app.state.checkout.customerDetails.name=document.getElementById("checkout-customer-name").value.trim(),app.state.checkout.customerDetails.phone=document.getElementById("checkout-customer-phone").value.trim(),!app.state.checkout.customerDetails.name||!app.state.checkout.customerDetails.phone?(this.showToast("Please enter name and phone.","error"),0):0),3===e&&(app.state.checkout.address.flat=document.getElementById("checkout-customer-flat").value.trim(),app.state.checkout.address.locality=document.getElementById("checkout-customer-locality").value.trim(),!app.state.checkout.address.flat||!app.state.checkout.address.locality?(this.showToast("Please enter your full address.","error"),0):0)),app.state.checkout.step+=t,this.renderCheckoutStep()},
+                resetCheckout(){app.state.checkout={step:1,customerDetails:{name:"",phone:""},address:{flat:"",locality:""},coupon:null}},
+                showToast(t,e="success"){const a=document.getElementById("toast-notification"),s=document.getElementById("toast-icon");document.getElementById("toast-message").textContent=t;const n={success:"check-circle",error:"x-circle",info:"info"};s.setAttribute("data-lucide",n[e]||"check-circle");const i={success:"bg-gray-800",error:"bg-red-600",info:"bg-blue-600"};a.className="toast fixed bottom-5 right-5 z-[200] text-white py-3 px-6 rounded-lg shadow-2xl flex items-center gap-3 "+(i[e]||"bg-gray-800"),lucide.createIcons(),a.classList.remove("hidden"),setTimeout(()=>a.classList.add("hidden"),3e3)},
+                plusSlides(t){this.showSlides(app.state.slideIndex+=t)},
+                showSlides(t){let e=document.getElementsByClassName("slide");0!==e.length&&(t>e.length&&(app.state.slideIndex=1),t<1&&(app.state.slideIndex=e.length),Array.from(e).forEach(t=>{t.style.display="none"}),e[app.state.slideIndex-1]&&(e[app.state.slideIndex-1].style.display="block"))},
+            
+                // --- NEW/MERGED FEATURES ---
+                openMobileCategories() {
+                    const grid = document.getElementById('mobile-categories-grid');
+                    grid.innerHTML = app.db.categories.map(c => `
+                        <button data-category="${c.id}" class="mobile-category-select-btn flex flex-col items-center justify-center p-2 card-bg rounded-lg space-y-2">
+                            <i data-lucide="${c.icon || 'tag'}" class="h-8 w-8"></i>
+                            <span class="text-xs font-semibold"><span class="lang-en">${c.name}</span><span class="lang-hi">${c.name_hi}</span></span>
+                        </button>
+                    `).join('');
+                    
+                    grid.querySelectorAll('.mobile-category-select-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            app.state.currentCategory = btn.dataset.category;
+                            this.renderProducts();
+                            this.toggleModal(false, 'mobile-categories-modal');
+                            document.querySelector('#main-categories .active')?.classList.remove('active');
+                            document.querySelector(`#main-categories [data-category="${btn.dataset.category}"]`)?.classList.add('active');
+                        });
+                    });
+
+                    lucide.createIcons();
+                    this.updateLanguage(app.state.currentLang);
+                    this.toggleModal(true, 'mobile-categories-modal');
+                },
+
+                openProductDetailModal(productId) {
+                    const product = app.db.products.find(p => p.id === productId);
+                    if (!product) return;
+                    const modalContent = document.getElementById('product-detail-content');
+                    const relatedProducts = app.db.products
+                        .filter(p => p.category_id === product.category_id && p.id !== product.id)
+                        .slice(0, 3);
+
+                    modalContent.innerHTML = `
+                        <header class="p-4 border-b border-gray-600 flex justify-between items-center">
+                            <h2 class="text-xl font-bold"><span class="lang-en">${product.name}</span><span class="lang-hi">${product.name_hi || product.name}</span></h2>
+                            <button onclick="app.methods.toggleModal(false, 'product-detail-modal')"><i data-lucide="x"></i></button>
+                        </header>
+                        <main class="flex-grow p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div><img src="${product.img}" class="w-full rounded-lg aspect-square object-contain bg-white/10"></div>
+                            <div class="space-y-4">
+                                <div>
+                                    <h3 class="font-semibold mb-2">Description</h3>
+                                    <p class="text-sm text-gray-300"><span class="lang-en">${product.description || 'No description available.'}</span><span class="lang-hi">${product.description_hi || 'कोई विवरण उपलब्ध नहीं है।'}</span></p>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold mb-2">Choose Variant</h3>
+                                    <div id="detail-variants-container" class="space-y-3"></div>
+                                </div>
+                            </div>
+                            ${relatedProducts.length > 0 ? `
+                            <div class="lg:col-span-2 mt-4">
+                                <h3 class="font-semibold mb-3 text-lg border-b border-gray-600 pb-2">Frequently Bought Together</h3>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                    ${relatedProducts.map(rp => {
+                                        const variant = rp.variants.find(v => v.status === 'Active');
+                                        return variant ? `
+                                        <div onclick="app.methods.toggleModal(false, 'product-detail-modal'); app.methods.openProductDetailModal(${rp.id})" class="product-card card-bg p-2 rounded-lg text-center">
+                                            <img src="${rp.img}" class="rounded h-20 mx-auto object-contain mb-2">
+                                            <p class="text-xs font-semibold truncate">${rp.name}</p>
+                                            <p class="text-xs text-gray-400">${app.db.settings.currency_symbol}${variant.sale_price}</p>
+                                        </div>` : '';
+                                    }).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
+                        </main>`;
+
+                    this.renderProductDetailVariants(product);
+                    this.toggleModal(true, 'product-detail-modal');
+                    this.updateLanguage(app.state.currentLang);
+                    lucide.createIcons();
+                },
+
+                renderProductDetailVariants(product) {
+                    const container = document.getElementById('detail-variants-container');
+                    container.innerHTML = product.variants.filter(v => v.status === 'Active').map(v => {
+                         const itemInCart = app.state.cart.find(item => item.variantId == v.id);
+                         let actionButton = '';
+                         if (v.stock > 0) {
+                            if(itemInCart) {
+                                actionButton = `<div class="flex items-center justify-center space-x-3 bg-green-600 text-white font-bold rounded-lg shadow"><button onclick="app.methods.updateCartQuantity(${v.id}, -1)" class="px-3 py-1">-</button><span class="text-sm">${itemInCart.quantity}</span><button onclick="app.methods.updateCartQuantity(${v.id}, 1)" class="px-3 py-1">+</button></div>`;
+                            } else {
+                                actionButton = `<button onclick="app.methods.addToCart(${v.id})" class="bg-green-500/20 text-green-300 font-bold py-1.5 px-3 rounded-lg hover:bg-green-500/30 text-sm w-full transition">ADD</button>`;
+                            }
+                         } else {
+                            actionButton = `<button class="bg-gray-700 text-gray-400 font-bold py-1.5 px-3 rounded-lg text-sm w-full cursor-not-allowed" disabled>Out of Stock</button>`;
+                         }
+                        return `
+                            <div class="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
+                                <div>
+                                    <p class="font-semibold">${v.unit}</p>
+                                    <p class="text-sm font-bold">${app.db.settings.currency_symbol}${v.sale_price} <s class="text-gray-400 font-normal text-xs">${v.price > v.sale_price ? app.db.settings.currency_symbol+v.price : ''}</s></p>
+                                </div>
+                                <div class="w-28">${actionButton}</div>
+                            </div>
+                        `
+                    }).join('');
+                },
+                
+                generateAIDescription(lang) {
+                    const productName = document.getElementById('product-name').value;
+                    if (!productName) {
+                        this.showToast('Please enter a product name first.', 'error');
+                        return;
+                    }
+
+                    this.showToast('🤖 Generating AI description...', 'info');
+                    setTimeout(() => {
+                        let description = '';
+                        if (lang === 'en') {
+                            const descInput = document.getElementById('product-description');
+                            description = `Discover the fresh and authentic taste of ${productName}. Sourced from the best local farms, this product is perfect for your daily meals, bringing both health and flavor to your table. Enjoy premium quality at an affordable price.`;
+                            descInput.value = description;
+                        } else {
+                            const descInputHi = document.getElementById('product-description_hi');
+                            description = `${productName} के ताज़ा और प्रामाणिक स्वाद की खोज करें। सर्वोत्तम स्थानीय खेतों से प्राप्त, यह उत्पाद आपके दैनिक भोजन के लिए एकदम सही है, जो आपकी मेज पर स्वास्थ्य और स्वाद दोनों लाता है। सस्ती कीमत पर प्रीमियम गुणवत्ता का आनंद लें।`;
+                            descInputHi.value = description;
+                        }
+                        this.showToast('Description generated!', 'success');
+                    }, 1500);
+                },
+
+                openOrderHistoryLookup() {
+                    this.toggleModal(true, 'order-history-lookup-modal');
+                },
+
+                async handleOrderHistoryLookup(e) {
+                    e.preventDefault();
+                    const phone = document.getElementById('order-history-phone').value;
+                    if (!phone) return;
+                    this.showToast('Searching for your orders...', 'info');
+                    const { data: orders, error } = await supabaseClient
+                        .from('orders')
+                        .select('*, order_items(*)')
+                        .eq('customer_details->>phone', phone)
+                        .order('created_at', { ascending: false });
+                    
+                    if (error) { this.showToast('Could not find orders.', 'error'); console.error(error); return; }
+                    
+                    this.toggleModal(false, 'order-history-lookup-modal');
+                    if (orders.length > 0) {
+                        this.renderOrderHistory(orders);
+                        this.toggleModal(true, 'order-history-display-modal');
+                    } else {
+                        this.showToast('No orders found for that phone number.', 'info');
+                    }
+                },
+
+                renderOrderHistory(orders) {
+                    const listContainer = document.getElementById('order-history-list');
+                    if (!listContainer) return;
+                    listContainer.innerHTML = orders.map(order => `
+                        <div class="card-bg p-4 rounded-lg">
+                            <div class="flex justify-between items-start border-b border-gray-600 pb-2 mb-2">
+                                <div>
+                                    <p class="font-bold">Order #${order.id}</p>
+                                    <p class="text-xs text-gray-400">${new Date(order.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <span class="px-2 py-1 text-xs rounded-full ${order.status === 'Delivered' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}">${order.status}</span>
+                            </div>
+                            <div class="text-sm space-y-1 mb-3">
+                                ${order.order_items.map(item => `
+                                    <div class="flex justify-between">
+                                        <span>${item.item_details.name} (x${item.quantity})</span>
+                                        <span>${app.db.settings.currency_symbol}${(item.price_at_purchase * item.quantity).toFixed(2)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                             <div class="flex justify-between items-center border-t border-gray-600 pt-2">
+                                <span class="font-bold text-lg">Total: ${app.db.settings.currency_symbol}${parseFloat(order.total).toFixed(2)}</span>
+                                <button onclick="app.methods.handleReorder(${order.id})" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-3 rounded flex items-center gap-1"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Re-order</button>
+                            </div>
+                        </div>
+                    `).join('');
+                    lucide.createIcons();
+                },
+                
+                handleReorder(orderId) {
+                    const order = app.db.orders.find(o => o.id === orderId);
+                    if (!order) { this.showToast('Order not found.', 'error'); return; }
+                    
+                    order.order_items.forEach(item => {
+                        const product = this.getProductByVariantId(item.variant_id);
+                        if (product && product.variant.stock > 0) {
+                            const existingCartItem = app.state.cart.find(ci => ci.variantId === item.variant_id);
+                            if (existingCartItem) {
+                                existingCartItem.quantity += item.quantity;
+                            } else {
+                                app.state.cart.push({ variantId: item.variant_id, quantity: item.quantity });
+                            }
+                        }
+                    });
+
+                    this.updateCartCount();
+                    this.showToast('Items from your past order have been added to your cart!', 'success');
+                    this.toggleModal(false, 'order-history-display-modal');
+                    this.renderProducts();
+                    this.toggleCartModal(true);
+                },
+
+            }
+        };
+
+        // --- Start the Application ---
+        document.addEventListener('DOMContentLoaded', () => app.methods.init());
+    </script>
+</body>
+</html>
+
