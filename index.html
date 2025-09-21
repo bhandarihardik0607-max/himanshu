@@ -181,6 +181,18 @@
                 display: none;
             }
         }
+
+        /* Pamphlet Styles */
+        #pamphlet-body {
+            background: #fff;
+            color: #111;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Arial', sans-serif;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
     </style>
     <!-- Dynamic Theme Styles will be injected here -->
     <style id="theme-styles"></style>
@@ -217,6 +229,7 @@
                 </div>
                 <!-- Action Buttons -->
                 <div class="flex items-center space-x-2 sm:space-x-4">
+                    <button id="share-store-btn" class="text-sm font-semibold text-gray-300 hover:text-green-400 p-2 rounded-lg bg-slate-800/80 hidden sm:flex items-center gap-2"><i data-lucide="share-2" class="h-4 w-4"></i> Share</button>
                     <button id="lang-toggle" class="text-sm font-semibold text-gray-300 hover:text-green-400 p-2 rounded-lg bg-slate-800/80"><span class="lang-en">हिंदी</span><span class="lang-hi">ENG</span></button>
                     <button id="cart-button" class="relative p-2 rounded-full hover:bg-slate-800/80">
                         <i data-lucide="shopping-cart" class="text-gray-300"></i>
@@ -306,7 +319,7 @@
 
         <!-- Product Detail Modal -->
         <div id="product-detail-modal" class="hidden modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div id="product-detail-content" class="modal-content card-bg rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div id="product-detail-content" class="modal-content card-bg rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
                 <!-- Content will be injected by JS -->
             </div>
         </div>
@@ -461,6 +474,20 @@
             </div>
         </div>
 
+        <!-- NEW: Pamphlet Modal -->
+        <div id="pamphlet-modal" class="hidden modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div class="modal-content w-full max-w-md bg-transparent border-none">
+                 <div id="pamphlet-body">
+                    <!-- Pamphlet content injected here -->
+                 </div>
+                 <div class="mt-4 flex justify-center gap-4">
+                     <button onclick="app.methods.sharePamphlet()" class="bg-green-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2"><i data-lucide="share-2"></i> Share</button>
+                     <button onclick="app.methods.toggleModal(false, 'pamphlet-modal')" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-full">Close</button>
+                 </div>
+            </div>
+        </div>
+
+
     </div>
 
     <!-- Admin Dashboard View -->
@@ -510,7 +537,7 @@
     <script>
         // ===================================================================================
         // SARITA GENERAL STORE - APPLICATION LOGIC
-        // Version: 6.0.1 (Error Fix & Feature Complete)
+        // Version: 7.0.0 (Pamphlet Marketing Update)
         // ===================================================================================
 
         const SUPABASE_URL = 'https://sklivachbhwaubwtnkwi.supabase.co';
@@ -785,8 +812,19 @@
                             content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Homepage Slideshow</h2><button onclick="app.methods.openGenericForm('slideshow')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Slide</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Preview</th><th class="p-2">Image URL</th><th class="p-2">Status</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-slideshow-list"></tbody></table></div>`;
                             break;
                          case 'marketing':
-                            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(window.location.href)}`;
-                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Marketing Tools</h2><div class="card-bg p-6 rounded-lg shadow max-w-md mx-auto text-center"><h3 class="font-semibold mb-2">Share Your Store!</h3><p class="text-gray-400 mb-4">Show this QR code to customers or download it to print on flyers.</p><img id="qr-code-img" src="${qrUrl}" class="mx-auto border-4 border-gray-700 rounded-lg"><a href="${qrUrl}&download=1" download="sarita-store-qr.png" class="mt-4 inline-flex items-center justify-center bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700"><i data-lucide="download" class="mr-2 h-5 w-5"></i> Download QR Code</a></div>`;
+                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Marketing Tools</h2>
+                                <div class="card-bg p-6 rounded-lg shadow">
+                                    <h3 class="text-xl font-bold mb-4">Promotional Pamphlet Generator</h3>
+                                    <p class="text-gray-400 mb-4 text-sm">Create a special offer message. This will be shown on a shareable pamphlet with your store's QR code. Leave it blank for no special offer.</p>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300">Pamphlet Offer Message</label>
+                                        <textarea id="pamphlet-promo-message" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm" rows="3" placeholder="e.g., Use code HIMANSHU1 to get 3% OFF your next order!">${app.db.settings.promo_message || ''}</textarea>
+                                    </div>
+                                    <div class="mt-4 flex gap-4">
+                                        <button onclick="app.methods.savePamphletMessage()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="save" class="mr-2 h-5 w-5"></i> Save Message</button>
+                                        <button onclick="app.methods.openPamphlet()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="eye" class="mr-2 h-5 w-5"></i> Preview Pamphlet</button>
+                                    </div>
+                                </div>`;
                             break;
                         case 'reports':
                             const deliveredOrders = app.db.orders.filter(o => o.status === 'Delivered');
@@ -1053,6 +1091,7 @@
                             this.renderProducts();
                         }
                     });
+                    document.getElementById('share-store-btn').addEventListener('click', () => this.openPamphlet());
                 },
 
                 updateActiveMobileNav() {
@@ -1361,15 +1400,41 @@
                     this.showToast('Fetching your location...', 'info');
                     if (navigator.geolocation) {
                         navigator.geolocation.getCurrentPosition(
-                            (position) => {
-                                // Simulate API call to reverse geocode
-                                setTimeout(() => {
-                                    document.getElementById('checkout-customer-flat').value = 'A-45, Sunshine Apartments';
-                                    document.getElementById('checkout-customer-locality').value = 'C-Scheme, Jaipur';
-                                    this.showToast('Location fetched successfully!');
-                                }, 1500);
+                            async (position) => {
+                                const lat = position.coords.latitude;
+                                const lon = position.coords.longitude;
+                                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+
+                                try {
+                                    const response = await fetch(url);
+                                    if (!response.ok) {
+                                        throw new Error('Failed to fetch address');
+                                    }
+                                    const data = await response.json();
+                                    
+                                    if (data && data.address) {
+                                        const addr = data.address;
+                                        const flat = `${addr.house_number || ''} ${addr.road || ''}`.trim();
+                                        const locality = `${addr.suburb || ''}, ${addr.city || ''}, ${addr.postcode || ''}`.trim();
+
+                                        document.getElementById('checkout-customer-flat').value = flat || 'Could not determine house/street';
+                                        document.getElementById('checkout-customer-locality').value = locality || 'Could not determine locality';
+                                        this.showToast('Location fetched successfully!');
+                                    } else {
+                                        throw new Error('Address not found in response');
+                                    }
+                                } catch (error) {
+                                    console.error("Reverse geocoding error:", error);
+                                    this.showToast('Could not fetch address. Please enter manually.', 'error');
+                                }
                             },
-                            () => { this.showToast('Unable to retrieve location. Please enter manually.', 'error'); }
+                            (error) => { 
+                                if (error.code == error.PERMISSION_DENIED) {
+                                    this.showToast('Location access denied. Please enable it in your browser settings.', 'error');
+                                } else {
+                                    this.showToast('Unable to retrieve location.', 'error');
+                                }
+                            }
                         );
                     } else {
                         this.showToast('Geolocation is not supported by your browser.', 'error');
@@ -1420,7 +1485,7 @@
                             content = `<div class="space-y-4"><div><label class="block text-sm font-medium text-gray-300">Full Name</label><input type="text" id="checkout-customer-name" value="${app.state.checkout.customerDetails.name}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><div><label class="block text-sm font-medium text-gray-300">Phone Number (for WhatsApp)</label><input type="tel" id="checkout-customer-phone" value="${app.state.checkout.customerDetails.phone}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3" placeholder="e.g., 919876543210"></div></div>`;
                             break;
                         case 3: // Address
-                             content = `<div class="space-y-4"><div><label class="block text-sm font-medium text-gray-300">Flat, House no., Building</label><input type="text" id="checkout-customer-flat" value="${app.state.checkout.address.flat}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><div><label class="block text-sm font-medium text-gray-300">Area, Colony, Street, Landmark</label><input type="text" id="checkout-customer-locality" value="${app.state.checkout.address.locality}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><button onclick="app.methods.getLocation()" class="mt-2 text-sm text-blue-400 hover:underline flex items-center gap-1"><i data-lucide="map-pin" class="h-4 w-4"></i> Fetch Current Location</button></div>`;
+                             content = `<div class="space-y-4"><div><label class="block text-sm font-medium text-gray-300">Flat, House no., Building</label><input type="text" id="checkout-customer-flat" value="${app.state.checkout.address.flat}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><div><label class="block text-sm font-medium text-gray-300">Area, Colony, Street, Landmark</label><input type="text" id="checkout-customer-locality" value="${app.state.checkout.address.locality}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><button onclick="app.methods.getLocation()" class="mt-2 text-sm text-blue-400 hover:underline flex items-center gap-1"><i data-lucide="map-pin" class="h-4 w-4"></i> Use My Current Location</button></div>`;
                             break;
                         case 4: // Final Review
                             const { subtotal, finalTotal, discountAmount } = this.calculateCartTotal();
@@ -1652,6 +1717,61 @@
                     this.toggleCartModal(true);
                 },
 
+                async savePamphletMessage() {
+                    const message = document.getElementById('pamphlet-promo-message').value;
+                    const { error } = await supabaseClient.from('settings').update({ promo_message: message }).eq('id', 1);
+                    if (error) {
+                        this.showToast('Error saving message.', 'error');
+                    } else {
+                        app.db.settings.promo_message = message;
+                        this.showToast('Promotional message saved!');
+                    }
+                },
+
+                openPamphlet() {
+                    const pamphletBody = document.getElementById('pamphlet-body');
+                    const promoMessage = app.db.settings.promo_message || "Check out our latest arrivals and daily deals!";
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.href)}`;
+
+                    pamphletBody.innerHTML = `
+                        <div class="text-center">
+                            <h2 class="text-2xl font-bold text-green-600">${app.db.settings.store_name}</h2>
+                            <p class="text-sm text-gray-500 mb-4">${app.db.settings.store_address}</p>
+                        </div>
+                        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 my-4 rounded">
+                            <p class="font-bold text-center">${promoMessage}</p>
+                        </div>
+                        <ul class="text-sm space-y-2 text-gray-700 my-4">
+                            <li class="flex items-center"><i data-lucide="package" class="h-5 w-5 mr-2 text-green-600"></i> Wide range of daily essentials.</li>
+                            <li class="flex items-center"><i data-lucide="truck" class="h-5 w-5 mr-2 text-green-600"></i> Fast and reliable home delivery.</li>
+                            <li class="flex items-center"><i data-lucide="camera" class="h-5 w-5 mr-2 text-green-600"></i> Order easily by uploading your list.</li>
+                        </ul>
+                        <div class="text-center mt-4">
+                            <p class="font-bold mb-2">Scan to Shop Now!</p>
+                            <img src="${qrUrl}" class="mx-auto border-4 border-gray-200 rounded-lg">
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    this.toggleModal(true, 'pamphlet-modal');
+                },
+
+                async sharePamphlet() {
+                    const shareData = {
+                        title: app.db.settings.store_name,
+                        text: `${app.db.settings.promo_message || 'Fresh groceries and daily essentials, delivered to your door!'}\nShop with us now at ${app.db.settings.store_name}!`,
+                        url: window.location.href
+                    };
+                    if (navigator.share) {
+                        try {
+                            await navigator.share(shareData);
+                        } catch (err) {
+                            console.error("Share failed:", err);
+                        }
+                    } else {
+                        navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
+                        this.showToast('Link & offer copied to clipboard!');
+                    }
+                }
             }
         };
 
