@@ -110,9 +110,12 @@
             transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
         }
         /* Active Category/Nav Styling */
-        .nav-category.active, .mobile-nav-btn.active {
+        .nav-category.active, .mobile-nav-btn.active, .admin-tab-button.active {
             color: var(--text-accent);
             font-weight: 600;
+        }
+        .admin-tab-button.active {
+            background-color: rgba(34, 197, 94, 0.1);
         }
         .nav-category.active {
              border-bottom: 3px solid var(--text-accent);
@@ -181,18 +184,6 @@
                 display: none;
             }
         }
-
-        /* Pamphlet Styles */
-        #pamphlet-body {
-            background: #fff;
-            color: #111;
-            padding: 20px;
-            border-radius: 8px;
-            font-family: 'Arial', sans-serif;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
     </style>
     <!-- Dynamic Theme Styles will be injected here -->
     <style id="theme-styles"></style>
@@ -229,7 +220,6 @@
                 </div>
                 <!-- Action Buttons -->
                 <div class="flex items-center space-x-2 sm:space-x-4">
-                    <button id="share-store-btn" class="text-sm font-semibold text-gray-300 hover:text-green-400 p-2 rounded-lg bg-slate-800/80 hidden sm:flex items-center gap-2"><i data-lucide="share-2" class="h-4 w-4"></i> Share</button>
                     <button id="lang-toggle" class="text-sm font-semibold text-gray-300 hover:text-green-400 p-2 rounded-lg bg-slate-800/80"><span class="lang-en">हिंदी</span><span class="lang-hi">ENG</span></button>
                     <button id="cart-button" class="relative p-2 rounded-full hover:bg-slate-800/80">
                         <i data-lucide="shopping-cart" class="text-gray-300"></i>
@@ -319,7 +309,7 @@
 
         <!-- Product Detail Modal -->
         <div id="product-detail-modal" class="hidden modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div id="product-detail-content" class="modal-content card-bg rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <div id="product-detail-content" class="modal-content card-bg rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
                 <!-- Content will be injected by JS -->
             </div>
         </div>
@@ -474,20 +464,6 @@
             </div>
         </div>
 
-        <!-- NEW: Pamphlet Modal -->
-        <div id="pamphlet-modal" class="hidden modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div class="modal-content w-full max-w-md bg-transparent border-none">
-                 <div id="pamphlet-body">
-                    <!-- Pamphlet content injected here -->
-                 </div>
-                 <div class="mt-4 flex justify-center gap-4">
-                     <button onclick="app.methods.sharePamphlet()" class="bg-green-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2"><i data-lucide="share-2"></i> Share</button>
-                     <button onclick="app.methods.toggleModal(false, 'pamphlet-modal')" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-full">Close</button>
-                 </div>
-            </div>
-        </div>
-
-
     </div>
 
     <!-- Admin Dashboard View -->
@@ -522,6 +498,7 @@
                     <button data-tab="expenses" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="wallet" class="mr-3 h-5 w-5"></i>Expenses</button>
                     <button data-tab="slideshow" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="gallery-horizontal" class="mr-3 h-5 w-5"></i>Slideshow</button>
                     <button data-tab="marketing" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="qr-code" class="mr-3 h-5 w-5"></i>Marketing</button>
+                    <button data-tab="themes" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="palette" class="mr-3 h-5 w-5"></i>Themes</button>
                     <button data-tab="settings" class="admin-tab-button w-full text-left font-semibold flex items-center p-3 rounded-lg"><i data-lucide="settings" class="mr-3 h-5 w-5"></i>Settings</button>
                 </nav>
             </aside>
@@ -537,7 +514,7 @@
     <script>
         // ===================================================================================
         // SARITA GENERAL STORE - APPLICATION LOGIC
-        // Version: 7.0.0 (Pamphlet Marketing Update)
+        // Version: 6.1.0 (Fixes & Theme Management)
         // ===================================================================================
 
         const SUPABASE_URL = 'https://sklivachbhwaubwtnkwi.supabase.co';
@@ -571,7 +548,8 @@
                 suppliers: [],
                 promotions: [],
                 staff: [],
-                expenses: []
+                expenses: [],
+                themes: []
             },
 
             methods: {
@@ -593,7 +571,7 @@
                     const [
                         settingsRes, slideshowRes, categoriesRes, 
                         productsRes, ordersRes, customersRes, 
-                        suppliersRes, promotionsRes, staffRes, expensesRes
+                        suppliersRes, promotionsRes, staffRes, expensesRes, themesRes
                     ] = await Promise.all([
                         supabaseClient.from('settings').select('*').limit(1).single(),
                         supabaseClient.from('slideshow').select('*'),
@@ -604,7 +582,8 @@
                         supabaseClient.from('suppliers').select('*'),
                         supabaseClient.from('promotions').select('*'),
                         supabaseClient.from('staff').select('*'),
-                        supabaseClient.from('expenses').select('*')
+                        supabaseClient.from('expenses').select('*'),
+                        supabaseClient.from('themes').select('*')
                     ]);
 
                     app.db.settings = settingsRes.data || { store_name: 'Kirana Store' };
@@ -617,16 +596,25 @@
                     app.db.promotions = promotionsRes.data || [];
                     app.db.staff = staffRes.data || [];
                     app.db.expenses = expensesRes.data || [];
+                    app.db.themes = themesRes.data || [];
 
                     document.querySelector('#header-store-name .lang-en').textContent = app.db.settings.store_name;
                     document.querySelector('#header-store-name .lang-hi').textContent = app.db.settings.store_name_hi || app.db.settings.store_name;
                     
-                    this.applyTheme(app.db.settings.theme || 'dark_gradient');
+                    this.applyTheme(app.db.settings.theme || 'Dark Gradient');
                 },
 
                 applyTheme(themeName) {
-                    const themes = {
-                        'dark_gradient': `
+                    // Try to find a custom theme from the database first
+                    const customTheme = app.db.themes.find(t => t.name === themeName);
+                    if (customTheme && customTheme.css_variables) {
+                        document.getElementById('theme-styles').innerHTML = customTheme.css_variables;
+                        return;
+                    }
+
+                    // Fallback to hardcoded themes if no custom theme is found
+                    const defaultThemes = {
+                        'Dark Gradient': `
                             :root {
                                 --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-tertiary: #334155;
                                 --bg-header: rgba(15, 23, 42, 0.7); --bg-card: rgba(30, 41, 59, 0.7);
@@ -635,7 +623,7 @@
                                 --shadow-color: rgba(0,0,0,0.4); --gradient-start: #0f172a;
                                 --gradient-mid: #1e293b; --gradient-end: #111827;
                             }`,
-                        'light_mode': `
+                        'Clean Light': `
                             :root {
                                 --bg-primary: #f1f5f9; --bg-secondary: #ffffff; --bg-tertiary: #e2e8f0;
                                 --bg-header: rgba(255, 255, 255, 0.7); --bg-card: rgba(255, 255, 255, 0.7);
@@ -644,7 +632,7 @@
                                 --shadow-color: rgba(0,0,0,0.1); --gradient-start: #e0f2fe;
                                 --gradient-mid: #f1f5f9; --gradient-end: #dbeafe;
                             }`,
-                        'ocean_blue': `
+                        'Ocean Blue': `
                              :root {
                                 --bg-primary: #0c2a4c; --bg-secondary: #0b3768; --bg-tertiary: #1a5ca3;
                                 --bg-header: rgba(5, 28, 55, 0.7); --bg-card: rgba(11, 55, 104, 0.7);
@@ -654,7 +642,7 @@
                                 --gradient-mid: #0b3768; --gradient-end: #0c2a4c;
                             }`
                     };
-                    document.getElementById('theme-styles').innerHTML = themes[themeName] || themes['dark_gradient'];
+                    document.getElementById('theme-styles').innerHTML = defaultThemes[themeName] || defaultThemes['Dark Gradient'];
                 },
                 
                 renderAll() {
@@ -688,7 +676,7 @@
                         return categoryMatch && searchMatch;
                     });
                     
-                    noProductsMsg.classList.toggle('hidden', productsToRender.length === 0);
+                    noProductsMsg.classList.toggle('hidden', productsToRender.length > 0);
 
                     productsToRender.forEach(p => {
                         const firstActiveVariant = p.variants.find(v => v.status === 'Active' && v.stock > 0) || p.variants.find(v => v.status === 'Active');
@@ -763,7 +751,7 @@
                     const container = document.getElementById('slideshow-section');
                     const activeSlides = app.db.slideshow.filter(s => s.status === 'Active');
                     if (activeSlides.length === 0) { container.innerHTML = ''; return; }
-                    container.innerHTML = `<div class="slideshow-container">${activeSlides.map(slide => `<div class="slide fade"><img src="${slide.img_url}" style="width:100%" class="aspect-[3/1] object-cover"></div>`).join('')}<a class="absolute top-1/2 left-4 -translate-y-1/2 cursor-pointer text-white bg-black bg-opacity-50 p-2 rounded-full hover:bg-opacity-75" onclick="app.methods.plusSlides(-1)"><i data-lucide="chevron-left"></i></a><a class="absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer text-white bg-black bg-opacity-50 p-2 rounded-full hover:bg-opacity-75" onclick="app.methods.plusSlides(1)"><i data-lucide="chevron-right"></i></a></div>`;
+                    container.innerHTML = `<div class="slideshow-container relative">${activeSlides.map(slide => `<div class="slide fade"><img src="${slide.img_url}" style="width:100%" class="aspect-[3/1] object-cover"></div>`).join('')}<a class="absolute top-1/2 left-4 -translate-y-1/2 cursor-pointer text-white bg-black bg-opacity-50 p-2 rounded-full hover:bg-opacity-75" onclick="app.methods.plusSlides(-1)"><i data-lucide="chevron-left"></i></a><a class="absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer text-white bg-black bg-opacity-50 p-2 rounded-full hover:bg-opacity-75" onclick="app.methods.plusSlides(1)"><i data-lucide="chevron-right"></i></a></div>`;
                     lucide.createIcons();
                     this.showSlides(1);
                 },
@@ -781,50 +769,39 @@
                             content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Welcome, Hardik!</h2><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"><div class="card-bg p-6 rounded-lg shadow"><h3 class="text-gray-400 text-sm font-semibold">TOTAL COMPLETED SALES</h3><p class="text-3xl font-bold text-gray-50">${app.db.settings.currency_symbol}${totalSales.toLocaleString('en-IN')}</p></div><div class="card-bg p-6 rounded-lg shadow"><h3 class="text-gray-400 text-sm font-semibold">ACTIVE ORDERS</h3><p class="text-3xl font-bold text-gray-50">${pendingOrdersCount}</p></div><div class="card-bg p-6 rounded-lg shadow"><h3 class="text-gray-400 text-sm font-semibold">TOTAL PRODUCTS</h3><p class="text-3xl font-bold text-gray-50">${app.db.products.length}</p></div><div class="card-bg p-6 rounded-lg shadow"><h3 class="text-gray-400 text-sm font-semibold">TOTAL CUSTOMERS</h3><p class="text-3xl font-bold text-gray-50">${app.db.customers.length}</p></div></div><div class="mt-8"><h3 class="text-2xl font-bold text-gray-100 mb-4">Recent Active Orders</h3><div class="card-bg p-4 rounded-lg shadow">${pendingOrders.length > 0 ? pendingOrders.map(o => `<div class="border-b border-gray-600 last:border-b-0 py-3"><div class="flex justify-between items-center"><div><p class="font-bold">Order #${o.id} - ${o.customer_details.name}</p><p class="text-sm text-gray-400">${o.order_items.length} items ・ ${app.db.settings.currency_symbol}${parseFloat(o.total).toFixed(2)}</p></div><div class="flex items-center gap-4"><span class="px-2 py-1 text-xs rounded-full ${o.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-300' : 'bg-blue-500/20 text-blue-300'}">${o.status}</span><button onclick="app.methods.toggleModal(true, 'order-detail-modal', ${o.id})" class="text-blue-400 font-semibold text-sm hover:underline">View</button></div></div></div>`).join('') : '<p class="text-gray-400">No active orders right now.</p>'}</div></div>`;
                             break;
                         case 'products':
-                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Manage Products</h2><button onclick="app.methods.openProductForm()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Product</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Name</th><th class="p-2">Category</th><th class="p-2">Variants</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-product-list"></tbody></table></div>`;
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Manage Products</h2><button onclick="app.methods.openProductForm()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Product</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-4">Name</th><th class="p-4">Category</th><th class="p-4">Variants</th><th class="p-4">Actions</th></tr></thead><tbody id="admin-product-list"></tbody></table></div>`;
                             break;
                         case 'categories':
-                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Manage Categories</h2><button onclick="app.methods.openGenericForm('categories')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Category</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Icon</th><th class="p-2">Name (English)</th><th class="p-2">Name (Hindi)</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-category-list"></tbody></table></div>`;
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Manage Categories</h2><button onclick="app.methods.openGenericForm('categories')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Category</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-4">Icon</th><th class="p-4">Name (English)</th><th class="p-4">Name (Hindi)</th><th class="p-4">Actions</th></tr></thead><tbody id="admin-category-list"></tbody></table></div>`;
                             break;
                          case 'orders':
-                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Manage Orders</h2><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Order ID</th><th class="p-2">Customer</th><th class="p-2">Total</th><th class="p-2">Status</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-order-list"></tbody></table></div>`;
+                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Manage Orders</h2><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-4">Order ID</th><th class="p-4">Customer</th><th class="p-4">Total</th><th class="p-4">Status</th><th class="p-4">Actions</th></tr></thead><tbody id="admin-order-list"></tbody></table></div>`;
                             break;
                         case 'inventory':
                             const lowStockThreshold = 10;
-                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Inventory Status</h2><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Product Name</th><th class="p-2">Variant</th><th class="p-2">Stock Level</th><th class="p-2">Status</th></tr></thead><tbody>${app.db.products.flatMap(p => p.variants.map(v => `<tr class="border-b border-gray-700"><td class="p-2">${p.name}</td><td class="p-2">${v.unit}</td><td class="p-2 font-bold ${v.stock <= lowStockThreshold ? 'text-red-400' : 'text-gray-200'}">${v.stock} units</td><td class="p-2">${v.stock === 0 ? '<span class="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-300">Out of Stock</span>' : ''}${v.stock > 0 && v.stock <= lowStockThreshold ? '<span class="px-2 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-300">Low Stock</span>' : ''}${v.stock > lowStockThreshold ? '<span class="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-300">In Stock</span>' : ''}</td></tr>`)).join('')}</tbody></table></div>`;
+                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Inventory Status</h2><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-4">Product Name</th><th class="p-4">Variant</th><th class="p-4">Stock Level</th><th class="p-4">Status</th></tr></thead><tbody>${app.db.products.flatMap(p => p.variants.map(v => `<tr class="border-b border-gray-700"><td class="p-4">${p.name}</td><td class="p-4">${v.unit}</td><td class="p-4 font-bold ${v.stock <= lowStockThreshold ? 'text-red-400' : 'text-gray-200'}">${v.stock} units</td><td class="p-4">${v.stock === 0 ? '<span class="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-300">Out of Stock</span>' : ''}${v.stock > 0 && v.stock <= lowStockThreshold ? '<span class="px-2 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-300">Low Stock</span>' : ''}${v.stock > lowStockThreshold ? '<span class="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-300">In Stock</span>' : ''}</td></tr>`)).join('')}</tbody></table></div>`;
                             break;
                         case 'customers':
-                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Customer Management</h2><button onclick="app.methods.openGenericForm('customers')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Customer</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Name</th><th class="p-2">Phone</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-customer-list"></tbody></table></div>`;
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Customer Management</h2><button onclick="app.methods.openGenericForm('customers')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Customer</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-4">Name</th><th class="p-4">Phone</th><th class="p-4">Actions</th></tr></thead><tbody id="admin-customer-list"></tbody></table></div>`;
                             break;
                         case 'suppliers':
-                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Supplier Contacts</h2><button onclick="app.methods.openGenericForm('suppliers')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Supplier</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Company</th><th class="p-2">Contact</th><th class="p-2">Phone</th><th class="p-2">Status</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-supplier-list"></tbody></table></div>`;
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Supplier Contacts</h2><button onclick="app.methods.openGenericForm('suppliers')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Supplier</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-4">Company</th><th class="p-4">Contact</th><th class="p-4">Phone</th><th class="p-4">Status</th><th class="p-4">Actions</th></tr></thead><tbody id="admin-supplier-list"></tbody></table></div>`;
                             break;
                         case 'promotions':
-                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Coupons & Promotions</h2><button onclick="app.methods.openGenericForm('promotions')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Coupon</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Code</th><th class="p-2">Discount</th><th class="p-2">Status</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-promotion-list"></tbody></table></div>`;
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Coupons & Promotions</h2><button onclick="app.methods.openGenericForm('promotions')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Coupon</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-4">Code</th><th class="p-4">Discount</th><th class="p-4">Status</th><th class="p-4">Actions</th></tr></thead><tbody id="admin-promotion-list"></tbody></table></div>`;
                             break;
                         case 'staff':
-                             content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Manage Staff</h2><button onclick="app.methods.openGenericForm('staff')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Staff</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Name</th><th class="p-2">Role</th><th class="p-2">Status</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-staff-list"></tbody></table></div>`;
+                             content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Manage Staff</h2><button onclick="app.methods.openGenericForm('staff')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Staff</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-4">Name</th><th class="p-4">Role</th><th class="p-4">Status</th><th class="p-4">Actions</th></tr></thead><tbody id="admin-staff-list"></tbody></table></div>`;
                             break;
                         case 'expenses':
-                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Expense Tracker</h2><button onclick="app.methods.openGenericForm('expenses')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Expense</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Date</th><th class="p-2">Description</th><th class="p-2">Amount</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-expense-list"></tbody></table></div>`;
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Expense Tracker</h2><button onclick="app.methods.openGenericForm('expenses')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Expense</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-4">Date</th><th class="p-4">Description</th><th class="p-4">Amount</th><th class="p-4">Actions</th></tr></thead><tbody id="admin-expense-list"></tbody></table></div>`;
                             break;
                          case 'slideshow':
-                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Homepage Slideshow</h2><button onclick="app.methods.openGenericForm('slideshow')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Slide</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-2">Preview</th><th class="p-2">Image URL</th><th class="p-2">Status</th><th class="p-2">Actions</th></tr></thead><tbody id="admin-slideshow-list"></tbody></table></div>`;
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Homepage Slideshow</h2><button onclick="app.methods.openGenericForm('slideshow')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Slide</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-4">Preview</th><th class="p-4">Image URL</th><th class="p-4">Status</th><th class="p-4">Actions</th></tr></thead><tbody id="admin-slideshow-list"></tbody></table></div>`;
                             break;
                          case 'marketing':
-                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Marketing Tools</h2>
-                                <div class="card-bg p-6 rounded-lg shadow">
-                                    <h3 class="text-xl font-bold mb-4">Promotional Pamphlet Generator</h3>
-                                    <p class="text-gray-400 mb-4 text-sm">Create a special offer message. This will be shown on a shareable pamphlet with your store's QR code. Leave it blank for no special offer.</p>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-300">Pamphlet Offer Message</label>
-                                        <textarea id="pamphlet-promo-message" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm" rows="3" placeholder="e.g., Use code HIMANSHU1 to get 3% OFF your next order!">${app.db.settings.promo_message || ''}</textarea>
-                                    </div>
-                                    <div class="mt-4 flex gap-4">
-                                        <button onclick="app.methods.savePamphletMessage()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="save" class="mr-2 h-5 w-5"></i> Save Message</button>
-                                        <button onclick="app.methods.openPamphlet()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="eye" class="mr-2 h-5 w-5"></i> Preview Pamphlet</button>
-                                    </div>
-                                </div>`;
+                            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(window.location.href)}`;
+                            content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Marketing Tools</h2><div class="card-bg p-6 rounded-lg shadow max-w-md mx-auto text-center"><h3 class="font-semibold mb-2">Share Your Store!</h3><p class="text-gray-400 mb-4">Show this QR code to customers or download it to print on flyers.</p><img id="qr-code-img" src="${qrUrl}" class="mx-auto border-4 border-gray-700 rounded-lg"><a href="${qrUrl}&download=1" download="sarita-store-qr.png" class="mt-4 inline-flex items-center justify-center bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700"><i data-lucide="download" class="mr-2 h-5 w-5"></i> Download QR Code</a></div>`;
                             break;
                         case 'reports':
                             const deliveredOrders = app.db.orders.filter(o => o.status === 'Delivered');
@@ -879,18 +856,23 @@
                                 </div>
                             `;
                             break;
+                        case 'themes':
+                            content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-gray-100">Manage Themes</h2><button onclick="app.methods.openGenericForm('themes')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"><i data-lucide="plus" class="mr-2 h-5 w-5"></i> Add Theme</button></div><div class="card-bg p-2 sm:p-6 rounded-lg shadow overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-gray-600"><th class="p-4">Name</th><th class="p-4">Actions</th></tr></thead><tbody id="admin-theme-list"></tbody></table></div>`;
+                            break;
                         case 'settings':
-                            const themes = [ { id: 'dark_gradient', name: 'Dark Gradient (Default)'}, { id: 'light_mode', name: 'Clean Light'}, { id: 'ocean_blue', name: 'Ocean Blue'} ];
-                            const themeOptions = themes.map(t => `<option value="${t.id}" ${app.db.settings.theme === t.id ? 'selected' : ''}>${t.name}</option>`).join('');
+                            const defaultThemes = [ { name: 'Dark Gradient'}, { name: 'Clean Light'}, { name: 'Ocean Blue'} ];
+                            const allThemes = [...defaultThemes, ...app.db.themes];
+                            const uniqueThemes = [...new Map(allThemes.map(item => [item['name'], item])).values()];
+                            const themeOptions = uniqueThemes.map(t => `<option value="${t.name}" ${app.db.settings.theme === t.name ? 'selected' : ''}>${t.name}</option>`).join('');
                             content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">Store Settings</h2><div class="card-bg p-6 rounded-lg shadow max-w-2xl"><form id="settings-form" class="space-y-4"><div><label class="block text-sm font-medium text-gray-300">Store Name</label><input type="text" id="setting-storeName" value="${app.db.settings.store_name}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm"></div><div><label class="block text-sm font-medium text-gray-300">Store Name (Hindi)</label><input type="text" id="setting-storeNameHi" value="${app.db.settings.store_name_hi || ''}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm"></div><div><label class="block text-sm font-medium text-gray-300">Contact Phone (with country code)</label><input type="tel" id="setting-storePhone" value="${app.db.settings.store_phone}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm"></div><div><label class="block text-sm font-medium text-gray-300">Address</label><input type="text" id="setting-storeAddress" value="${app.db.settings.store_address}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm"></div><div><label class="block text-sm font-medium text-gray-300">Currency Symbol</label><input type="text" id="setting-currencySymbol" value="${app.db.settings.currency_symbol}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm w-24"></div><div><label class="block text-sm font-medium text-gray-300">App Theme</label><select id="setting-theme" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm">${themeOptions}</select></div><div class="pt-4"><button type="submit" class="bg-green-600 text-white py-2 px-6 rounded-lg font-bold hover:bg-green-700">Save Settings</button></div></form></div>`;
                             break;
                         default:
                              content = `<h2 class="text-3xl font-bold text-gray-100 mb-6">${tabId.charAt(0).toUpperCase() + tabId.slice(1)}</h2><div class="card-bg p-6 rounded-lg shadow">This feature is under construction or data has not been loaded.</div>`;
                     }
                     mainContent.innerHTML = content;
-                    const listRenderers = { products: this.renderAdminProductList, categories: this.renderAdminCategoryList, orders: this.renderAdminOrderList, customers: this.renderAdminCustomerList, suppliers: this.renderAdminSupplierList, promotions: this.renderAdminPromotionList, staff: this.renderAdminStaffList, expenses: this.renderAdminExpenseList, slideshow: this.renderAdminSlideshowList };
+                    const listRenderers = { products: this.renderAdminProductList, categories: this.renderAdminCategoryList, orders: this.renderAdminOrderList, customers: this.renderAdminCustomerList, suppliers: this.renderAdminSupplierList, promotions: this.renderAdminPromotionList, staff: this.renderAdminStaffList, expenses: this.renderAdminExpenseList, slideshow: this.renderAdminSlideshowList, themes: this.renderAdminThemeList };
                     if(listRenderers[tabId]) listRenderers[tabId].call(this);
-                    if(tabId === 'settings') document.getElementById('settings-form').addEventListener('submit', this.handleSettingsSave);
+                    if(tabId === 'settings') document.getElementById('settings-form').addEventListener('submit', (e) => this.handleSettingsSave(e));
                     lucide.createIcons();
                 },
                 renderAdminProductList() {
@@ -898,7 +880,7 @@
                     if(!list) return;
                     list.innerHTML = app.db.products.map(p => {
                         const category = app.db.categories.find(c => c.id === p.category_id);
-                        return `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2 font-semibold">${p.name}</td><td class="p-2">${category ? category.name : 'N/A'}</td><td class="p-2 text-sm">${p.variants.length} variant(s)</td><td class="p-2 space-x-2"><button onclick="app.methods.openProductForm(${p.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('products', ${p.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`
+                        return `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-4 font-semibold">${p.name}</td><td class="p-4">${category ? category.name : 'N/A'}</td><td class="p-4 text-sm">${p.variants.length} variant(s)</td><td class="p-4 space-x-2"><button onclick="app.methods.openProductForm(${p.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('products', ${p.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`
                     }).join('');
                 },
                 renderAdminCategoryList() {
@@ -906,10 +888,10 @@
                     if(!list) return;
                     list.innerHTML = app.db.categories.map(c => `
                         <tr class="border-b border-gray-700 hover:bg-gray-800/50">
-                            <td class="p-2"><i data-lucide="${c.icon || 'tag'}" class="h-5 w-5"></i></td>
-                            <td class="p-2 font-semibold">${c.name}</td>
-                            <td class="p-2">${c.name_hi || ''}</td>
-                            <td class="p-2 space-x-2">
+                            <td class="p-4"><i data-lucide="${c.icon || 'tag'}" class="h-5 w-5"></i></td>
+                            <td class="p-4 font-semibold">${c.name}</td>
+                            <td class="p-4">${c.name_hi || ''}</td>
+                            <td class="p-4 space-x-2">
                                 <button onclick="app.methods.openGenericForm('categories', ${c.id})" class="text-blue-400 hover:underline text-sm">Edit</button>
                                 <button onclick="app.methods.deleteItem('categories', ${c.id})" class="text-red-400 hover:underline text-sm">Delete</button>
                             </td>
@@ -923,40 +905,53 @@
                     list.innerHTML = app.db.orders.map(o => {
                         const statuses = ['Pending', 'Processing', 'Out for Delivery', 'Delivered', 'Cancelled'];
                         const statusOptions = statuses.map(s => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${s}</option>`).join('');
-                        return `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2 font-mono">#${o.id}</td><td class="p-2">${o.customer_details.name}</td><td class="p-2">${app.db.settings.currency_symbol}${parseFloat(o.total).toFixed(2)}</td><td class="p-2"><select onchange="app.methods.updateOrderStatus(${o.id}, this.value)" class="text-xs p-1 rounded-md border-gray-600 bg-gray-700 text-gray-200 focus:ring-indigo-500 focus:border-indigo-500">${statusOptions}</select></td><td class="p-2 space-x-2"><button onclick="app.methods.toggleModal(true, 'order-detail-modal', ${o.id})" class="text-blue-400 hover:underline text-sm">View</button></td></tr>`
+                        return `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-4 font-mono">#${o.id}</td><td class="p-4">${o.customer_details.name}</td><td class="p-4">${app.db.settings.currency_symbol}${parseFloat(o.total).toFixed(2)}</td><td class="p-4"><select onchange="app.methods.updateOrderStatus(${o.id}, this.value)" class="text-xs p-1 rounded-md border-gray-600 bg-gray-700 text-gray-200 focus:ring-indigo-500 focus:border-indigo-500">${statusOptions}</select></td><td class="p-4 space-x-2"><button onclick="app.methods.toggleModal(true, 'order-detail-modal', ${o.id})" class="text-blue-400 hover:underline text-sm">View</button></td></tr>`
                     }).join('');
                 },
                 renderAdminCustomerList() {
                      const list = document.getElementById('admin-customer-list');
                     if(!list) return;
-                    list.innerHTML = app.db.customers.map(c => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2">${c.name}</td><td class="p-2">${this.createWhatsAppLink(c.phone)}</td><td class="p-2 space-x-2"><button onclick="app.methods.openGenericForm('customers', ${c.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('customers', ${c.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                    list.innerHTML = app.db.customers.map(c => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-4">${c.name}</td><td class="p-4">${this.createWhatsAppLink(c.phone)}</td><td class="p-4 space-x-2"><button onclick="app.methods.openGenericForm('customers', ${c.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('customers', ${c.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
                     lucide.createIcons();
                 },
                 renderAdminSupplierList() {
                     const list = document.getElementById('admin-supplier-list');
                     if(!list) return;
-                    list.innerHTML = app.db.suppliers.map(s => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2 font-semibold">${s.name}</td><td class="p-2">${s.contact}</td><td class="p-2">${this.createWhatsAppLink(s.phone)}</td><td class="p-2"><span class="px-2 py-1 text-xs rounded-full ${s.status === 'Active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">${s.status}</span></td><td class="p-2 space-x-2"><button onclick="app.methods.openGenericForm('suppliers', ${s.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('suppliers', ${s.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                    list.innerHTML = app.db.suppliers.map(s => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-4 font-semibold">${s.name}</td><td class="p-4">${s.contact}</td><td class="p-4">${this.createWhatsAppLink(s.phone)}</td><td class="p-4"><span class="px-2 py-1 text-xs rounded-full ${s.status === 'Active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">${s.status}</span></td><td class="p-4 space-x-2"><button onclick="app.methods.openGenericForm('suppliers', ${s.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('suppliers', ${s.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
                     lucide.createIcons();
                 },
                 renderAdminPromotionList() {
                     const list = document.getElementById('admin-promotion-list');
                     if(!list) return;
-                    list.innerHTML = app.db.promotions.map(p => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2 font-mono font-semibold">${p.code}</td><td class="p-2">${p.discount_percent ? p.discount_percent + '%' : app.db.settings.currency_symbol + p.discount_value}</td><td class="p-2"><span class="px-2 py-1 text-xs rounded-full ${p.status === 'Active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">${p.status}</span></td><td class="p-2 space-x-2"><button onclick="app.methods.openGenericForm('promotions', ${p.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('promotions', ${p.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                    list.innerHTML = app.db.promotions.map(p => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-4 font-mono font-semibold">${p.code}</td><td class="p-4">${p.discount_percent ? p.discount_percent + '%' : app.db.settings.currency_symbol + p.discount_value}</td><td class="p-4"><span class="px-2 py-1 text-xs rounded-full ${p.status === 'Active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">${p.status}</span></td><td class="p-4 space-x-2"><button onclick="app.methods.openGenericForm('promotions', ${p.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('promotions', ${p.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
                 }, 
                 renderAdminStaffList() {
                     const list = document.getElementById('admin-staff-list');
                     if(!list) return;
-                    list.innerHTML = app.db.staff.map(s => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2 font-semibold">${s.name}</td><td class="p-2">${s.role}</td><td class="p-2"><span class="px-2 py-1 text-xs rounded-full ${s.status === 'Active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">${s.status}</span></td><td class="p-2 space-x-2"><button onclick="app.methods.openGenericForm('staff', ${s.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('staff', ${s.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                    list.innerHTML = app.db.staff.map(s => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-4 font-semibold">${s.name}</td><td class="p-4">${s.role}</td><td class="p-4"><span class="px-2 py-1 text-xs rounded-full ${s.status === 'Active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">${s.status}</span></td><td class="p-4 space-x-2"><button onclick="app.methods.openGenericForm('staff', ${s.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('staff', ${s.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
                 },
                 renderAdminExpenseList() {
                     const list = document.getElementById('admin-expense-list');
                     if(!list) return;
-                    list.innerHTML = app.db.expenses.map(e => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2">${e.date}</td><td class="p-2">${e.description}</td><td class="p-2">${app.db.settings.currency_symbol}${e.amount.toLocaleString('en-IN')}</td><td class="p-2 space-x-2"><button onclick="app.methods.openGenericForm('expenses', ${e.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('expenses', ${e.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                    list.innerHTML = app.db.expenses.map(e => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-4">${e.date}</td><td class="p-4">${e.description}</td><td class="p-4">${app.db.settings.currency_symbol}${e.amount.toLocaleString('en-IN')}</td><td class="p-4 space-x-2"><button onclick="app.methods.openGenericForm('expenses', ${e.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('expenses', ${e.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
                 },
                  renderAdminSlideshowList() {
                     const list = document.getElementById('admin-slideshow-list');
                     if(!list) return;
-                    list.innerHTML = app.db.slideshow.map(s => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-2"><img src="${s.img_url}" class="h-10 w-24 object-cover rounded"></td><td class="p-2 text-xs truncate max-w-xs">${s.img_url}</td><td class="p-2"><span class="px-2 py-1 text-xs rounded-full ${s.status === 'Active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">${s.status}</span></td><td class="p-2 space-x-2"><button onclick="app.methods.openGenericForm('slideshow', ${s.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('slideshow', ${s.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                    list.innerHTML = app.db.slideshow.map(s => `<tr class="border-b border-gray-700 hover:bg-gray-800/50"><td class="p-4"><img src="${s.img_url}" class="h-10 w-24 object-cover rounded"></td><td class="p-4 text-xs truncate max-w-xs">${s.img_url}</td><td class="p-4"><span class="px-2 py-1 text-xs rounded-full ${s.status === 'Active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">${s.status}</span></td><td class="p-4 space-x-2"><button onclick="app.methods.openGenericForm('slideshow', ${s.id})" class="text-blue-400 hover:underline text-sm">Edit</button><button onclick="app.methods.deleteItem('slideshow', ${s.id})" class="text-red-400 hover:underline text-sm">Delete</button></td></tr>`).join('');
+                },
+                renderAdminThemeList() {
+                    const list = document.getElementById('admin-theme-list');
+                    if (!list) return;
+                    list.innerHTML = app.db.themes.map(t => `
+                        <tr class="border-b border-gray-700 hover:bg-gray-800/50">
+                            <td class="p-4 font-semibold">${t.name}</td>
+                            <td class="p-4 space-x-2">
+                                <button onclick="app.methods.openGenericForm('themes', ${t.id})" class="text-blue-400 hover:underline text-sm">Edit</button>
+                                <button onclick="app.methods.deleteItem('themes', ${t.id})" class="text-red-400 hover:underline text-sm">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
                 },
                  renderOffersPage() {
                     const grid = document.getElementById('offers-grid');
@@ -1091,7 +1086,6 @@
                             this.renderProducts();
                         }
                     });
-                    document.getElementById('share-store-btn').addEventListener('click', () => this.openPamphlet());
                 },
 
                 updateActiveMobileNav() {
@@ -1182,7 +1176,7 @@
                 async handleSettingsSave(e) {
                     e.preventDefault();
                     const settingsData = {
-                        id: 1,
+                        id: 1, // Assuming settings table has a single row with id 1
                         store_name: document.getElementById('setting-storeName').value,
                         store_name_hi: document.getElementById('setting-storeNameHi').value,
                         store_phone: document.getElementById('setting-storePhone').value,
@@ -1190,13 +1184,20 @@
                         currency_symbol: document.getElementById('setting-currencySymbol').value,
                         theme: document.getElementById('setting-theme').value
                     };
-                    const { error } = await supabaseClient.from('settings').upsert(settingsData);
-                    if (error) { this.showToast('Error saving settings.', 'error'); } 
+                    const { error } = await supabaseClient.from('settings').upsert(settingsData, { onConflict: 'id' });
+
+                    if (error) { 
+                        this.showToast('Error saving settings.', 'error'); 
+                        console.error("Settings save error:", error);
+                    } 
                     else {
                         this.showToast('Settings saved successfully!');
                         app.db.settings = { ...app.db.settings, ...settingsData };
                         this.applyTheme(settingsData.theme);
-                        this.renderAll();
+                        // Re-render store name in header
+                        document.querySelector('#header-store-name .lang-en').textContent = settingsData.store_name;
+                        document.querySelector('#header-store-name .lang-hi').textContent = settingsData.store_name_hi || settingsData.store_name;
+                        this.renderAdminTab('settings'); // Re-render settings tab to reflect changes
                     }
                 },
                 async handleGenericImageUpload(e, inputId, previewId, bucket) {
@@ -1216,9 +1217,13 @@
                     form.reset();
                     const title = document.getElementById('form-modal-title');
                     const body = document.getElementById('form-modal-body');
-                    const item = id ? app.db[itemType].find(i => i.id === id) : null;
-                    title.textContent = `${id ? 'Edit' : 'Add'} ${itemType.charAt(0).toUpperCase() + itemType.slice(0, -1)}`;
+                    const item = id ? app.db[itemType]?.find(i => i.id === id) : null;
+                    
+                    const singularType = itemType.endsWith('ies') ? itemType.slice(0, -3) + 'y' : itemType.slice(0, -1);
+                    title.textContent = `${id ? 'Edit' : 'Add'} ${singularType.charAt(0).toUpperCase() + singularType.slice(1)}`;
+                    
                     let fieldsHtml = `<input type="hidden" name="id" value="${id || ''}">`;
+                    
                     const formFields = {
                         categories: [{name: 'name', label: 'Name (English)'}, {name: 'name_hi', label: 'Name (Hindi)'}, {name: 'icon', label: 'Icon Name (from lucide.dev)'}],
                         customers: [{name: 'name', label: 'Name'}, {name: 'phone', label: 'Phone', type: 'tel'}],
@@ -1226,14 +1231,18 @@
                         promotions: [{name: 'code', label: 'Coupon Code'}, {name: 'discount_percent', label: 'Discount (%)', type: 'number'}, {name: 'discount_value', label: `Discount (${app.db.settings.currency_symbol})`, type: 'number'}, {name: 'status', label: 'Active', type: 'switch'}],
                         staff: [{name: 'name', label: 'Staff Name'}, {name: 'role', label: 'Role'}, {name: 'status', label: 'Active', type: 'switch'}],
                         expenses: [{name: 'date', label: 'Date', type: 'date'}, {name: 'description', label: 'Description'}, {name: 'amount', label: 'Amount', type: 'number'}],
-                        slideshow: [{name: 'img_url', label: 'Image', type: 'imageUpload', inputId: 'slideshow-img-url', previewId: 'slideshow-img-preview', bucket: 'slideshow-images'}, {name: 'status', label: 'Active', type: 'switch'}]
+                        slideshow: [{name: 'img_url', label: 'Image', type: 'imageUpload', inputId: 'slideshow-img-url', previewId: 'slideshow-img-preview', bucket: 'slideshow-images'}, {name: 'status', label: 'Active', type: 'switch'}],
+                        themes: [{name: 'name', label: 'Theme Name'}, {name: 'css_variables', label: 'CSS Variables', type: 'textarea', rows: 8, placeholder: `:root {\n    --bg-primary: #000000;\n    --text-primary: #ffffff;\n    /* ... etc */\n}`}]
                     };
+
                     fieldsHtml += formFields[itemType].map(field => {
                         const value = item ? item[field.name] : '';
                         if (field.type === 'switch') { return `<div class="flex items-center space-x-2"><label class="switch"><input type="checkbox" name="status" ${value === 'Active' || (!id && field.name === 'status') ? 'checked' : ''}><span class="slider"></span></label><span class="text-sm font-medium">${field.label}</span></div>`; }
                         if (field.type === 'imageUpload') { return `<div><label class="block text-sm font-medium text-gray-300">${field.label}</label><div class="mt-1 flex items-center"><input type="text" name="${field.name}" id="${field.inputId}" value="${value || ''}" placeholder="Enter image URL or upload" class="flex-grow block w-full rounded-none rounded-l-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm"><label for="${field.inputId}-upload" class="cursor-pointer inline-flex items-center px-3 py-2 border border-l-0 border-gray-600 bg-gray-600 text-gray-300 rounded-r-md hover:bg-gray-500"><i data-lucide="upload" class="h-5 w-5"></i></label><input type="file" id="${field.inputId}-upload" class="hidden" accept="image/*" onchange="app.methods.handleGenericImageUpload(event, '${field.inputId}', '${field.previewId}', '${field.bucket}')"></div><img id="${field.previewId}" src="${value || ''}" class="mt-2 rounded-md max-h-32 ${value ? '' : 'hidden'} border p-1 border-gray-600"></div>`; }
-                        return `<div><label class="block text-sm font-medium text-gray-300">${field.label}</label><input type="${field.type || 'text'}" name="${field.name}" value="${value || ''}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm" required></div>`;
+                        if (field.type === 'textarea') { return `<div><label class="block text-sm font-medium text-gray-300">${field.label}</label><textarea name="${field.name}" rows="${field.rows || 4}" placeholder="${field.placeholder || ''}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm font-mono text-xs">${value || ''}</textarea></div>`;}
+                        return `<div><label class="block text-sm font-medium text-gray-300">${field.label}</label><input type="${field.type || 'text'}" name="${field.name}" value="${value || ''}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm" ${field.type !== 'number' ? 'required' : ''}></div>`;
                     }).join('');
+
                     body.innerHTML = fieldsHtml;
                     lucide.createIcons();
                     form.onsubmit = (e) => this.handleGenericFormSubmit(e, itemType);
@@ -1362,10 +1371,25 @@
                     lucide.createIcons();
                 },
                 async deleteItem(itemType, id) {
+                    // FIX: Prevent deleting a customer with existing orders
+                    if (itemType === 'customers') {
+                        const hasOrders = app.db.orders.some(order => order.customer_id === id);
+                        if (hasOrders) {
+                            this.showToast('Cannot delete customer with existing orders.', 'error');
+                            return;
+                        }
+                    }
+
                     if (confirm(`Are you sure you want to delete this item? This action cannot be undone.`)) {
                         const { error } = await supabaseClient.from(itemType).delete().eq('id', id);
-                        if (error) { console.error(`Error deleting ${itemType}:`, error); this.showToast(`Could not delete item.`, 'error'); } 
-                        else { this.showToast('Item deleted successfully.', 'info'); await this.loadInitialData(); this.renderAll(); }
+                        if (error) { 
+                            console.error(`Error deleting ${itemType}:`, error); 
+                            this.showToast(`Could not delete item.`, 'error'); 
+                        } else { 
+                            this.showToast('Item deleted successfully.', 'info'); 
+                            await this.loadInitialData(); 
+                            this.renderAll(); 
+                        }
                     }
                 },
                 async updateOrderStatus(orderId, newStatus) {
@@ -1400,41 +1424,15 @@
                     this.showToast('Fetching your location...', 'info');
                     if (navigator.geolocation) {
                         navigator.geolocation.getCurrentPosition(
-                            async (position) => {
-                                const lat = position.coords.latitude;
-                                const lon = position.coords.longitude;
-                                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
-
-                                try {
-                                    const response = await fetch(url);
-                                    if (!response.ok) {
-                                        throw new Error('Failed to fetch address');
-                                    }
-                                    const data = await response.json();
-                                    
-                                    if (data && data.address) {
-                                        const addr = data.address;
-                                        const flat = `${addr.house_number || ''} ${addr.road || ''}`.trim();
-                                        const locality = `${addr.suburb || ''}, ${addr.city || ''}, ${addr.postcode || ''}`.trim();
-
-                                        document.getElementById('checkout-customer-flat').value = flat || 'Could not determine house/street';
-                                        document.getElementById('checkout-customer-locality').value = locality || 'Could not determine locality';
-                                        this.showToast('Location fetched successfully!');
-                                    } else {
-                                        throw new Error('Address not found in response');
-                                    }
-                                } catch (error) {
-                                    console.error("Reverse geocoding error:", error);
-                                    this.showToast('Could not fetch address. Please enter manually.', 'error');
-                                }
+                            (position) => {
+                                // Simulate API call to reverse geocode
+                                setTimeout(() => {
+                                    document.getElementById('checkout-customer-flat').value = 'A-45, Sunshine Apartments';
+                                    document.getElementById('checkout-customer-locality').value = 'C-Scheme, Jaipur';
+                                    this.showToast('Location fetched successfully!');
+                                }, 1500);
                             },
-                            (error) => { 
-                                if (error.code == error.PERMISSION_DENIED) {
-                                    this.showToast('Location access denied. Please enable it in your browser settings.', 'error');
-                                } else {
-                                    this.showToast('Unable to retrieve location.', 'error');
-                                }
-                            }
+                            () => { this.showToast('Unable to retrieve location. Please enter manually.', 'error'); }
                         );
                     } else {
                         this.showToast('Geolocation is not supported by your browser.', 'error');
@@ -1459,9 +1457,8 @@
                     const step = app.state.checkout.step;
                     const titles = ["Order Summary", "Your Details", "Delivery Address", "Review & Pay"];
                     document.getElementById('checkout-title').innerText = titles[step - 1];
-                    document.getElementById('checkout-progress').innerHTML = Array.from({length: 4}, (_, i) => `<div class="progress-step h-1.5 flex-1 rounded-full ${i < step ? 'active' : ''}"></div>`).join('');
-                    document.querySelectorAll('.checkout-step').forEach(el => el.classList.remove('active'));
-                    document.getElementById(`checkout-step-${step}`).classList.add('active');
+                    document.getElementById('checkout-progress').innerHTML = Array.from({length: 4}, (_, i) => `<div class="h-1.5 flex-1 rounded-full ${i < step ? 'bg-green-500' : 'bg-gray-600'}"></div>`).join('');
+                    document.querySelectorAll('.checkout-step').forEach((el, index) => el.classList.toggle('hidden', index + 1 !== step));
                     this.renderCheckoutStepContent(step);
                     this.renderCheckoutFooter(step);
                     lucide.createIcons();
@@ -1485,7 +1482,7 @@
                             content = `<div class="space-y-4"><div><label class="block text-sm font-medium text-gray-300">Full Name</label><input type="text" id="checkout-customer-name" value="${app.state.checkout.customerDetails.name}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><div><label class="block text-sm font-medium text-gray-300">Phone Number (for WhatsApp)</label><input type="tel" id="checkout-customer-phone" value="${app.state.checkout.customerDetails.phone}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3" placeholder="e.g., 919876543210"></div></div>`;
                             break;
                         case 3: // Address
-                             content = `<div class="space-y-4"><div><label class="block text-sm font-medium text-gray-300">Flat, House no., Building</label><input type="text" id="checkout-customer-flat" value="${app.state.checkout.address.flat}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><div><label class="block text-sm font-medium text-gray-300">Area, Colony, Street, Landmark</label><input type="text" id="checkout-customer-locality" value="${app.state.checkout.address.locality}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><button onclick="app.methods.getLocation()" class="mt-2 text-sm text-blue-400 hover:underline flex items-center gap-1"><i data-lucide="map-pin" class="h-4 w-4"></i> Use My Current Location</button></div>`;
+                             content = `<div class="space-y-4"><div><label class="block text-sm font-medium text-gray-300">Flat, House no., Building</label><input type="text" id="checkout-customer-flat" value="${app.state.checkout.address.flat}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><div><label class="block text-sm font-medium text-gray-300">Area, Colony, Street, Landmark</label><input type="text" id="checkout-customer-locality" value="${app.state.checkout.address.locality}" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-200 shadow-sm p-3"></div><button onclick="app.methods.getLocation()" class="mt-2 text-sm text-blue-400 hover:underline flex items-center gap-1"><i data-lucide="map-pin" class="h-4 w-4"></i> Fetch Current Location</button></div>`;
                             break;
                         case 4: // Final Review
                             const { subtotal, finalTotal, discountAmount } = this.calculateCartTotal();
@@ -1717,61 +1714,6 @@
                     this.toggleCartModal(true);
                 },
 
-                async savePamphletMessage() {
-                    const message = document.getElementById('pamphlet-promo-message').value;
-                    const { error } = await supabaseClient.from('settings').update({ promo_message: message }).eq('id', 1);
-                    if (error) {
-                        this.showToast('Error saving message.', 'error');
-                    } else {
-                        app.db.settings.promo_message = message;
-                        this.showToast('Promotional message saved!');
-                    }
-                },
-
-                openPamphlet() {
-                    const pamphletBody = document.getElementById('pamphlet-body');
-                    const promoMessage = app.db.settings.promo_message || "Check out our latest arrivals and daily deals!";
-                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.href)}`;
-
-                    pamphletBody.innerHTML = `
-                        <div class="text-center">
-                            <h2 class="text-2xl font-bold text-green-600">${app.db.settings.store_name}</h2>
-                            <p class="text-sm text-gray-500 mb-4">${app.db.settings.store_address}</p>
-                        </div>
-                        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 my-4 rounded">
-                            <p class="font-bold text-center">${promoMessage}</p>
-                        </div>
-                        <ul class="text-sm space-y-2 text-gray-700 my-4">
-                            <li class="flex items-center"><i data-lucide="package" class="h-5 w-5 mr-2 text-green-600"></i> Wide range of daily essentials.</li>
-                            <li class="flex items-center"><i data-lucide="truck" class="h-5 w-5 mr-2 text-green-600"></i> Fast and reliable home delivery.</li>
-                            <li class="flex items-center"><i data-lucide="camera" class="h-5 w-5 mr-2 text-green-600"></i> Order easily by uploading your list.</li>
-                        </ul>
-                        <div class="text-center mt-4">
-                            <p class="font-bold mb-2">Scan to Shop Now!</p>
-                            <img src="${qrUrl}" class="mx-auto border-4 border-gray-200 rounded-lg">
-                        </div>
-                    `;
-                    lucide.createIcons();
-                    this.toggleModal(true, 'pamphlet-modal');
-                },
-
-                async sharePamphlet() {
-                    const shareData = {
-                        title: app.db.settings.store_name,
-                        text: `${app.db.settings.promo_message || 'Fresh groceries and daily essentials, delivered to your door!'}\nShop with us now at ${app.db.settings.store_name}!`,
-                        url: window.location.href
-                    };
-                    if (navigator.share) {
-                        try {
-                            await navigator.share(shareData);
-                        } catch (err) {
-                            console.error("Share failed:", err);
-                        }
-                    } else {
-                        navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
-                        this.showToast('Link & offer copied to clipboard!');
-                    }
-                }
             }
         };
 
@@ -1780,4 +1722,3 @@
     </script>
 </body>
 </html>
-
